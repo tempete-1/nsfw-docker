@@ -1,0 +1,7 @@
+runpod_volume:
+    base_path: /runpod-volume/models
+    diffusion_models: diffusion_models/
+    loras: loras/
+    vae: vae/
+    clip: text_encoders/
+    controlnet: controlnet/
