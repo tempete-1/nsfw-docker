@@ -16,15 +16,6 @@
     },
     "_meta": {"title": "NSFW LoRA"}
   },
-  "3": {
-    "class_type": "LoraLoaderModelOnly",
-    "inputs": {
-      "model": ["2", 0],
-      "lora_name": "kira_lora.safetensors",
-      "strength_model": 0.95
-    },
-    "_meta": {"title": "Character LoRA"}
-  },
   "4": {
     "class_type": "DualCLIPLoader",
     "inputs": {
@@ -69,7 +60,7 @@
   "9": {
     "class_type": "KSampler",
     "inputs": {
-      "model": ["3", 0],
+      "model": ["2", 0],
       "positive": ["6", 0],
       "negative": ["7", 0],
       "latent_image": ["8", 0],
