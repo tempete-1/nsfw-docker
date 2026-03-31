@@ -29,7 +29,7 @@ RUN cd custom_nodes/PuLID_ComfyUI && pip3 install --no-cache-dir -r requirements
 RUN cd custom_nodes/comfyui_controlnet_aux && pip3 install --no-cache-dir -r requirements.txt 2>/dev/null || true
 
 # RunPod SDK + extras
-RUN pip3 install --no-cache-dir runpod insightface onnxruntime-gpu
+RUN pip3 install --no-cache-dir runpod insightface onnxruntime
 
 # Copy config and handler
 COPY extra_model_paths.yaml /comfyui/extra_model_paths.yaml
