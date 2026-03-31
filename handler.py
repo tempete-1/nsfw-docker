@@ -14,6 +14,7 @@ import subprocess
 import sys
 import os
 import tempfile
+import glob as globmod
 
 COMFY_HOST = "127.0.0.1:8188"
 comfy_process = None
@@ -47,8 +48,59 @@ def start_comfyui():
         except Exception:
             time.sleep(1)
 
+    # Print ComfyUI output on failure
+    if comfy_process.stdout:
+        output = comfy_process.stdout.read().decode(errors='replace')
+        print(f"ComfyUI stdout:\n{output[-3000:]}")
     print("ERROR: ComfyUI failed to start")
     return False
+
+
+def check_models():
+    """Check what model files exist on the volume."""
+    print("=== Checking model files ===")
+    vol = "/runpod-volume"
+    if os.path.exists(vol):
+        for root, dirs, files in os.walk(vol):
+            depth = root.replace(vol, '').count(os.sep)
+            if depth < 3:
+                for f in files:
+                    fpath = os.path.join(root, f)
+                    size_mb = os.path.getsize(fpath) / (1024*1024)
+                    print(f"  {fpath} ({size_mb:.1f}MB)")
+    else:
+        print(f"  WARNING: {vol} does not exist!")
+        # Check alternative paths
+        for alt in ["/workspace", "/runpod-volume", "/models"]:
+            if os.path.exists(alt):
+                print(f"  Found alternative: {alt}")
+
+    # Check workflows
+    print("=== Checking workflows ===")
+    for f in globmod.glob("/workflows/*.json"):
+        print(f"  {f}")
+
+    # Check ComfyUI extra model paths
+    yaml_path = "/comfyui/extra_model_paths.yaml"
+    if os.path.exists(yaml_path):
+        print(f"=== {yaml_path} ===")
+        with open(yaml_path) as f:
+            print(f.read())
+
+
+def get_comfy_logs():
+    """Get recent ComfyUI stdout."""
+    if comfy_process and comfy_process.stdout:
+        try:
+            # Non-blocking read
+            import select
+            if hasattr(select, 'select'):
+                while select.select([comfy_process.stdout], [], [], 0)[0]:
+                    line = comfy_process.stdout.readline()
+                    if line:
+                        print(f"[ComfyUI] {line.decode(errors='replace').strip()}")
+        except Exception:
+            pass
 
 
 def queue_prompt(workflow: dict) -> str:
@@ -64,16 +116,21 @@ def queue_prompt(workflow: dict) -> str:
     try:
         resp = json.loads(urllib.request.urlopen(req).read())
     except urllib.error.HTTPError as e:
-        error_body = e.read().decode()
-        print(f"ComfyUI prompt error ({e.code}): {error_body[:1000]}")
+        error_body = e.read().decode(errors='replace')
+        print(f"ComfyUI prompt error ({e.code}): {error_body[:2000]}")
         raise RuntimeError(f"ComfyUI rejected workflow: {error_body[:500]}")
+
     if "error" in resp:
         print(f"ComfyUI prompt response error: {resp['error']}")
         node_errors = resp.get("node_errors", {})
         if node_errors:
-            print(f"Node errors: {json.dumps(node_errors, indent=2)[:1000]}")
+            print(f"Node errors: {json.dumps(node_errors, indent=2)[:2000]}")
         raise RuntimeError(f"ComfyUI workflow error: {resp['error']}")
-    return resp["prompt_id"]
+
+    prompt_id = resp.get("prompt_id")
+    if not prompt_id:
+        raise RuntimeError(f"No prompt_id in response: {resp}")
+    return prompt_id
 
 
 def poll_completion(prompt_id: str, timeout: int = 300) -> dict:
@@ -81,26 +138,35 @@ def poll_completion(prompt_id: str, timeout: int = 300) -> dict:
     start = time.time()
     while time.time() - start < timeout:
         try:
-            resp = json.loads(
-                urllib.request.urlopen(f"http://{COMFY_HOST}/history/{prompt_id}").read()
-            )
+            raw = urllib.request.urlopen(f"http://{COMFY_HOST}/history/{prompt_id}").read()
+            resp = json.loads(raw)
             if prompt_id in resp:
                 entry = resp[prompt_id]
+
                 # Check for execution errors
                 if "status" in entry:
                     status_info = entry["status"]
-                    if status_info.get("status_str") == "error":
+                    status_str = status_info.get("status_str", "")
+                    print(f"ComfyUI status: {status_str}")
+                    if status_str == "error":
                         messages = status_info.get("messages", [])
-                        print(f"ComfyUI execution error: {messages}")
-                        raise RuntimeError(f"ComfyUI error: {messages}")
-                print(f"ComfyUI outputs keys: {list(entry.get('outputs', {}).keys())}")
-                for nid, nout in entry.get("outputs", {}).items():
-                    print(f"  Node {nid}: {list(nout.keys())}")
-                return entry.get("outputs", {})
+                        print(f"ComfyUI execution error messages: {messages}")
+                        raise RuntimeError(f"ComfyUI execution error: {messages}")
+
+                outputs = entry.get("outputs", {})
+                print(f"ComfyUI outputs: {list(outputs.keys())}")
+                for nid, nout in outputs.items():
+                    print(f"  Node {nid}: keys={list(nout.keys())}")
+                    if "images" in nout:
+                        print(f"    Images: {len(nout['images'])} items")
+                        for img in nout["images"]:
+                            print(f"      {img}")
+
+                return outputs
         except (TimeoutError, RuntimeError):
             raise
         except Exception as e:
-            print(f"Poll error: {e}")
+            print(f"Poll attempt error: {e}")
         time.sleep(2)
     raise TimeoutError("ComfyUI generation timed out")
 
@@ -136,7 +202,8 @@ def load_workflow(action: str) -> dict:
     """Load workflow template JSON."""
     path = f"/workflows/{action}.json"
     if not os.path.exists(path):
-        raise FileNotFoundError(f"Workflow not found: {path}")
+        available = globmod.glob("/workflows/*.json")
+        raise FileNotFoundError(f"Workflow not found: {path}. Available: {available}")
     with open(path) as f:
         return json.load(f)
 
@@ -146,40 +213,43 @@ def build_workflow(job_input: dict) -> dict:
     action = job_input.get("action", "generate")
     mode = job_input.get("mode", "generate")
 
-    # Map mode to workflow file
     workflow_map = {
         "generate": "generate",
         "inpaint": "inpaint",
         "video": "video",
         "edit_easy": "edit_easy",
         "edit_dark": "edit_dark",
+        "edit": "edit_easy",
+        "dark_beast": "edit_dark",
     }
-    workflow_name = workflow_map.get(mode, action)
+    workflow_name = workflow_map.get(mode, workflow_map.get(action, "generate"))
+    print(f"Loading workflow: {workflow_name} (action={action}, mode={mode})")
     workflow = load_workflow(workflow_name)
 
-    # Inject prompt
     prompt = job_input.get("prompt", "")
     negative = job_input.get("negative", "blurry, ugly, deformed, low quality")
 
-    # Find and set prompt nodes (by title or class)
     for node_id, node in workflow.items():
         class_type = node.get("class_type", "")
+        meta_title = str(node.get("_meta", {}).get("title", "")).lower()
 
         # Set positive prompt
-        if class_type == "CLIPTextEncode" and "positive" in str(node.get("_meta", {}).get("title", "")).lower():
+        if class_type == "CLIPTextEncode" and "positive" in meta_title:
             node["inputs"]["text"] = prompt
-        elif class_type == "CLIPTextEncode" and "negative" in str(node.get("_meta", {}).get("title", "")).lower():
+            print(f"  Set positive prompt on node {node_id}")
+        elif class_type == "CLIPTextEncode" and "negative" in meta_title:
             node["inputs"]["text"] = negative
+            print(f"  Set negative prompt on node {node_id}")
 
-        # Set seed to random if needed
+        # Set seed
         if class_type == "KSampler":
             seed = job_input.get("seed", -1)
             if seed == -1:
                 import random
                 seed = random.randint(0, 2**32 - 1)
             node["inputs"]["seed"] = seed
+            print(f"  Set seed={seed} on node {node_id}")
 
-            # Set other KSampler params if provided
             if "steps" in job_input:
                 node["inputs"]["steps"] = job_input["steps"]
             if "cfg" in job_input:
@@ -204,11 +274,12 @@ def build_workflow(job_input: dict) -> dict:
             if "photo" in job_input and job_input["photo"]:
                 fname = save_base64_image(job_input["photo"], "photo")
                 node["inputs"]["image"] = fname
+                print(f"  Set photo on node {node_id}")
             if "face_image" in job_input and job_input["face_image"]:
-                meta_title = str(node.get("_meta", {}).get("title", "")).lower()
                 if "face" in meta_title or "reference" in meta_title:
                     fname = save_base64_image(job_input["face_image"], "face")
                     node["inputs"]["image"] = fname
+                    print(f"  Set face_image on node {node_id}")
 
     return workflow
 
@@ -217,12 +288,12 @@ def handler(job):
     """RunPod serverless handler."""
     try:
         job_input = job["input"]
+        print(f"Job input keys: {list(job_input.keys())}")
+        print(f"Action: {job_input.get('action')}, Mode: {job_input.get('mode')}")
+        print(f"Prompt: {job_input.get('prompt', '')[:100]}")
 
         # Build workflow
         workflow = build_workflow(job_input)
-        print(f"Workflow nodes: {list(workflow.keys())}")
-        for nid, node in workflow.items():
-            print(f"  {nid}: {node.get('class_type')} - {node.get('_meta', {}).get('title', '')}")
 
         # Queue prompt
         prompt_id = queue_prompt(workflow)
@@ -236,6 +307,7 @@ def handler(job):
         for node_id, node_output in outputs.items():
             if "images" in node_output:
                 for img in node_output["images"]:
+                    print(f"Fetching image: {img}")
                     b64 = get_image_base64(
                         img["filename"],
                         img.get("subfolder", ""),
@@ -243,15 +315,23 @@ def handler(job):
                     )
                     images.append(b64)
 
+        print(f"Total images: {len(images)}")
+        if not images:
+            print("WARNING: No images in outputs!")
+            print(f"Full outputs: {json.dumps({k: list(v.keys()) for k, v in outputs.items()})}")
+
         return {"status": "success", "images": images}
 
     except Exception as e:
-        print(f"ERROR: {e}")
-        return {"status": "error", "error": str(e), "images": []}
+        import traceback
+        tb = traceback.format_exc()
+        print(f"ERROR: {e}\n{tb}")
+        return {"status": "error", "error": str(e), "traceback": tb, "images": []}
 
 
 # ── Cold start: launch ComfyUI ──
 print("=== RunPod ComfyUI Handler Starting ===")
+check_models()
 if not start_comfyui():
     print("FATAL: ComfyUI did not start")
 
