@@ -54,13 +54,25 @@ def start_comfyui():
 def queue_prompt(workflow: dict) -> str:
     """Submit workflow to ComfyUI API, return prompt_id."""
     client_id = str(uuid.uuid4())
-    data = json.dumps({"prompt": workflow, "client_id": client_id}).encode()
+    payload = {"prompt": workflow, "client_id": client_id}
+    data = json.dumps(payload).encode()
     req = urllib.request.Request(
         f"http://{COMFY_HOST}/prompt",
         data=data,
         headers={"Content-Type": "application/json"},
     )
-    resp = json.loads(urllib.request.urlopen(req).read())
+    try:
+        resp = json.loads(urllib.request.urlopen(req).read())
+    except urllib.error.HTTPError as e:
+        error_body = e.read().decode()
+        print(f"ComfyUI prompt error ({e.code}): {error_body[:1000]}")
+        raise RuntimeError(f"ComfyUI rejected workflow: {error_body[:500]}")
+    if "error" in resp:
+        print(f"ComfyUI prompt response error: {resp['error']}")
+        node_errors = resp.get("node_errors", {})
+        if node_errors:
+            print(f"Node errors: {json.dumps(node_errors, indent=2)[:1000]}")
+        raise RuntimeError(f"ComfyUI workflow error: {resp['error']}")
     return resp["prompt_id"]
 
 
@@ -73,10 +85,23 @@ def poll_completion(prompt_id: str, timeout: int = 300) -> dict:
                 urllib.request.urlopen(f"http://{COMFY_HOST}/history/{prompt_id}").read()
             )
             if prompt_id in resp:
-                return resp[prompt_id]["outputs"]
-        except Exception:
-            pass
-        time.sleep(1)
+                entry = resp[prompt_id]
+                # Check for execution errors
+                if "status" in entry:
+                    status_info = entry["status"]
+                    if status_info.get("status_str") == "error":
+                        messages = status_info.get("messages", [])
+                        print(f"ComfyUI execution error: {messages}")
+                        raise RuntimeError(f"ComfyUI error: {messages}")
+                print(f"ComfyUI outputs keys: {list(entry.get('outputs', {}).keys())}")
+                for nid, nout in entry.get("outputs", {}).items():
+                    print(f"  Node {nid}: {list(nout.keys())}")
+                return entry.get("outputs", {})
+        except (TimeoutError, RuntimeError):
+            raise
+        except Exception as e:
+            print(f"Poll error: {e}")
+        time.sleep(2)
     raise TimeoutError("ComfyUI generation timed out")
 
 
@@ -195,6 +220,9 @@ def handler(job):
 
         # Build workflow
         workflow = build_workflow(job_input)
+        print(f"Workflow nodes: {list(workflow.keys())}")
+        for nid, node in workflow.items():
+            print(f"  {nid}: {node.get('class_type')} - {node.get('_meta', {}).get('title', '')}")
 
         # Queue prompt
         prompt_id = queue_prompt(workflow)

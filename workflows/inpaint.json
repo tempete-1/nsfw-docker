@@ -80,7 +80,6 @@
       "negative": ["9", 0],
       "latent_image": ["7", 0],
       "seed": 42,
-      "control_after_generate": "randomize",
       "steps": 25,
       "cfg": 3.5,
       "sampler_name": "dpmpp_2m_sde",
