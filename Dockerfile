@@ -5,7 +5,8 @@ ENV PYTHONUNBUFFERED=1
 
 # System deps
 RUN apt-get update && apt-get install -y \
-    python3.11 python3.11-venv python3-pip git wget \
+    python3.11 python3.11-venv python3.11-dev python3-pip git wget \
+    build-essential cmake \
     libgl1-mesa-glx libglib2.0-0 libsm6 libxrender1 libxext6 \
     && ln -sf /usr/bin/python3.11 /usr/bin/python3 \
     && ln -sf /usr/bin/python3.11 /usr/bin/python \
@@ -29,7 +30,10 @@ RUN cd custom_nodes/PuLID_ComfyUI && pip3 install --no-cache-dir -r requirements
 RUN cd custom_nodes/comfyui_controlnet_aux && pip3 install --no-cache-dir -r requirements.txt 2>/dev/null || true
 
 # RunPod SDK + extras
-RUN pip3 install --no-cache-dir runpod insightface onnxruntime
+# Install deps separately to isolate failures
+RUN pip3 install --no-cache-dir runpod
+RUN pip3 install --no-cache-dir onnxruntime
+RUN pip3 install --no-cache-dir insightface
 
 # Copy config and handler
 COPY extra_model_paths.yaml /comfyui/extra_model_paths.yaml
