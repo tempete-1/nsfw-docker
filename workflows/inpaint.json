@@ -51,7 +51,7 @@
     "inputs": {
       "pixels": ["5", 0],
       "vae": ["4", 0],
-      "mask": ["6", 0],
+      "mask": ["6", 1],
       "grow_mask_by": 6
     },
     "_meta": {"title": "VAE Encode Inpaint"}
