@@ -229,6 +229,40 @@ def build_workflow(job_input: dict) -> dict:
     prompt = job_input.get("prompt", "")
     negative = job_input.get("negative", "blurry, ugly, deformed, low quality")
 
+    # Conditionally add kira_lora if prompt mentions "kira"
+    use_kira = "kira" in prompt.lower()
+    if use_kira:
+        kira_lora_path = "/runpod-volume/models/loras/kira_lora.safetensors"
+        if os.path.exists(kira_lora_path):
+            # Find the last LoRA node and the KSampler to insert kira between them
+            last_lora_id = None
+            for nid, n in workflow.items():
+                if n.get("class_type") in ("LoraLoaderModelOnly", "LoraLoader"):
+                    last_lora_id = nid
+            sampler_id = None
+            for nid, n in workflow.items():
+                if n.get("class_type") == "KSampler":
+                    sampler_id = nid
+
+            if last_lora_id and sampler_id:
+                kira_id = "99"  # use high ID to avoid conflicts
+                workflow[kira_id] = {
+                    "class_type": "LoraLoaderModelOnly",
+                    "inputs": {
+                        "model": [last_lora_id, 0],
+                        "lora_name": "kira_lora.safetensors",
+                        "strength_model": job_input.get("lora_strength", 0.95),
+                    },
+                    "_meta": {"title": "Character LoRA (Kira)"},
+                }
+                # Point KSampler to kira LoRA output
+                workflow[sampler_id]["inputs"]["model"] = [kira_id, 0]
+                print(f"  Added kira_lora (node {kira_id})")
+        else:
+            print(f"  WARNING: kira_lora not found at {kira_lora_path}, skipping")
+    else:
+        print("  No kira in prompt, skipping kira_lora")
+
     for node_id, node in workflow.items():
         class_type = node.get("class_type", "")
         meta_title = str(node.get("_meta", {}).get("title", "")).lower()
