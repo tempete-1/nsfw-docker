@@ -34,6 +34,7 @@ RUN cd custom_nodes/comfyui_controlnet_aux && pip3 install --no-cache-dir -r req
 RUN pip3 install --no-cache-dir runpod
 RUN pip3 install --no-cache-dir onnxruntime
 RUN pip3 install --no-cache-dir insightface
+RUN pip3 install --no-cache-dir Pillow
 
 # Copy config and handler
 COPY extra_model_paths.yaml /comfyui/extra_model_paths.yaml

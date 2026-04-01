@@ -185,16 +185,42 @@ def get_image_base64(filename: str, subfolder: str, img_type: str) -> str:
 def save_base64_image(b64_data: str, prefix: str = "input") -> str:
     """Save base64 image to temp file, return path."""
     img_bytes = base64.b64decode(b64_data)
-    path = os.path.join(tempfile.gettempdir(), f"{prefix}_{uuid.uuid4().hex[:8]}.png")
-    with open(path, "wb") as f:
-        f.write(img_bytes)
-    # Also save to ComfyUI input dir so LoadImage can find it
     comfy_input = "/comfyui/input"
     os.makedirs(comfy_input, exist_ok=True)
-    fname = os.path.basename(path)
+    fname = f"{prefix}_{uuid.uuid4().hex[:8]}.png"
     comfy_path = os.path.join(comfy_input, fname)
     with open(comfy_path, "wb") as f:
         f.write(img_bytes)
+    return fname
+
+
+def save_mask_image(b64_data: str) -> str:
+    """Save mask as PNG with alpha channel. White pixels in mask → transparent (alpha=0)."""
+    from PIL import Image
+    import io
+
+    img_bytes = base64.b64decode(b64_data)
+    img = Image.open(io.BytesIO(img_bytes)).convert("RGBA")
+
+    # Get luminance from RGB — white areas = mask
+    r, g, b, a = img.split()
+    gray = img.convert("L")
+
+    # Create new image: original RGB but alpha = inverted luminance
+    # White in mask (255) → alpha 0 (transparent = masked area)
+    # Black in mask (0) → alpha 255 (opaque = keep area)
+    from PIL import ImageOps
+    inv_gray = ImageOps.invert(gray)
+
+    # Build RGBA with the inverted mask as alpha
+    result = Image.merge("RGBA", (r, g, b, inv_gray))
+
+    comfy_input = "/comfyui/input"
+    os.makedirs(comfy_input, exist_ok=True)
+    fname = f"mask_{uuid.uuid4().hex[:8]}.png"
+    comfy_path = os.path.join(comfy_input, fname)
+    result.save(comfy_path, "PNG")
+    print(f"  Saved mask with alpha channel: {fname} ({img.size})")
     return fname
 
 
@@ -371,7 +397,13 @@ def build_workflow(job_input: dict) -> dict:
 
         # Set input image
         if class_type == "LoadImage":
-            if "photo" in job_input and job_input["photo"]:
+            if "mask" in meta_title:
+                # Mask image — save with alpha channel
+                if "mask" in job_input and job_input["mask"]:
+                    fname = save_mask_image(job_input["mask"])
+                    node["inputs"]["image"] = fname
+                    print(f"  Set mask on node {node_id}")
+            elif "photo" in job_input and job_input["photo"]:
                 fname = save_base64_image(job_input["photo"], "photo")
                 node["inputs"]["image"] = fname
                 print(f"  Set photo on node {node_id}")
