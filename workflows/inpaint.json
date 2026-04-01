@@ -69,7 +69,8 @@
       "negative": ["8", 0],
       "vae": ["4", 0],
       "pixels": ["5", 0],
-      "mask": ["6", 1]
+      "mask": ["6", 1],
+      "noise_mask": true
     },
     "_meta": {"title": "Inpaint Model Conditioning"}
   },
