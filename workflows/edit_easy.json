@@ -75,7 +75,7 @@
       "cfg": 1.5,
       "sampler_name": "dpmpp_2m_sde",
       "scheduler": "beta",
-      "denoise": 0.85
+      "denoise": 0.35
     },
     "_meta": {"title": "KSampler"}
   },
