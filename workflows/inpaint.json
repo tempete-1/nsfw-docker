@@ -2,10 +2,10 @@
   "1": {
     "class_type": "UNETLoader",
     "inputs": {
-      "unet_name": "flux1-fill-dev.safetensors",
+      "unet_name": "flux1-dev.safetensors",
       "weight_dtype": "fp8_e4m3fn"
     },
-    "_meta": {"title": "Load UNET (Fill)"}
+    "_meta": {"title": "Load UNET"}
   },
   "2": {
     "class_type": "DualCLIPLoader",
@@ -54,29 +54,28 @@
     "_meta": {"title": "negative prompt"}
   },
   "8": {
-    "class_type": "InpaintModelConditioning",
+    "class_type": "VAEEncodeForInpaint",
     "inputs": {
-      "positive": ["6", 0],
-      "negative": ["7", 0],
-      "vae": ["3", 0],
       "pixels": ["4", 0],
-      "mask": ["5", 1]
+      "vae": ["3", 0],
+      "mask": ["5", 1],
+      "grow_mask_by": 6
     },
-    "_meta": {"title": "Inpaint Model Conditioning"}
+    "_meta": {"title": "VAE Encode Inpaint"}
   },
   "9": {
     "class_type": "KSampler",
     "inputs": {
       "model": ["1", 0],
-      "positive": ["8", 0],
-      "negative": ["8", 1],
-      "latent_image": ["8", 2],
+      "positive": ["6", 0],
+      "negative": ["7", 0],
+      "latent_image": ["8", 0],
       "seed": 42,
       "steps": 20,
       "cfg": 1.5,
       "sampler_name": "euler",
       "scheduler": "normal",
-      "denoise": 1.0
+      "denoise": 0.85
     },
     "_meta": {"title": "KSampler"}
   },
