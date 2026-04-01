@@ -2,68 +2,12 @@
   "1": {
     "class_type": "UNETLoader",
     "inputs": {
-      "unet_name": "flux1-dev.safetensors",
+      "unet_name": "flux1-fill-dev.safetensors",
       "weight_dtype": "fp8_e4m3fn"
     },
-    "_meta": {"title": "Load UNET"}
+    "_meta": {"title": "Load UNET (Fill)"}
   },
   "2": {
-    "class_type": "DualCLIPLoader",
-    "inputs": {
-      "clip_name1": "clip_l.safetensors",
-      "clip_name2": "t5xxl_fp16.safetensors",
-      "type": "flux"
-    },
-    "_meta": {"title": "CLIP Loader"}
-  },
-  "3": {
-    "class_type": "VAELoader",
-    "inputs": {
-      "vae_name": "ae.safetensors"
-    },
-    "_meta": {"title": "VAE Loader"}
-  },
-  "4": {
-    "class_type": "LoadImage",
-    "inputs": {
-      "image": "input.png"
-    },
-    "_meta": {"title": "Load Photo"}
-  },
-  "5": {
-    "class_type": "LoadImage",
-    "inputs": {
-      "image": "mask.png"
-    },
-    "_meta": {"title": "Load Mask"}
-  },
-  "6": {
-    "class_type": "CLIPTextEncode",
-    "inputs": {
-      "clip": ["2", 0],
-      "text": "inpaint prompt"
-    },
-    "_meta": {"title": "positive prompt"}
-  },
-  "7": {
-    "class_type": "CLIPTextEncode",
-    "inputs": {
-      "clip": ["2", 0],
-      "text": "blurry, ugly, deformed, watermark, text, low quality, cartoon"
-    },
-    "_meta": {"title": "negative prompt"}
-  },
-  "8": {
-    "class_type": "VAEEncodeForInpaint",
-    "inputs": {
-      "pixels": ["4", 0],
-      "vae": ["3", 0],
-      "mask": ["5", 1],
-      "grow_mask_by": 6
-    },
-    "_meta": {"title": "VAE Encode Inpaint"}
-  },
-  "12": {
     "class_type": "LoraLoaderModelOnly",
     "inputs": {
       "model": ["1", 0],
@@ -72,34 +16,91 @@
     },
     "_meta": {"title": "NSFW LoRA"}
   },
+  "3": {
+    "class_type": "DualCLIPLoader",
+    "inputs": {
+      "clip_name1": "clip_l.safetensors",
+      "clip_name2": "t5xxl_fp16.safetensors",
+      "type": "flux"
+    },
+    "_meta": {"title": "CLIP Loader"}
+  },
+  "4": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "ae.safetensors"
+    },
+    "_meta": {"title": "VAE Loader"}
+  },
+  "5": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "input.png"
+    },
+    "_meta": {"title": "Load Photo"}
+  },
+  "6": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "mask.png"
+    },
+    "_meta": {"title": "Load Mask"}
+  },
+  "7": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": ["3", 0],
+      "text": "inpaint prompt"
+    },
+    "_meta": {"title": "positive prompt"}
+  },
+  "8": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": ["3", 0],
+      "text": "blurry, ugly, deformed, watermark, text, low quality, cartoon"
+    },
+    "_meta": {"title": "negative prompt"}
+  },
   "9": {
+    "class_type": "InpaintModelConditioning",
+    "inputs": {
+      "positive": ["7", 0],
+      "negative": ["8", 0],
+      "vae": ["4", 0],
+      "pixels": ["5", 0],
+      "mask": ["6", 1]
+    },
+    "_meta": {"title": "Inpaint Model Conditioning"}
+  },
+  "10": {
     "class_type": "KSampler",
     "inputs": {
-      "model": ["12", 0],
-      "positive": ["6", 0],
-      "negative": ["7", 0],
-      "latent_image": ["8", 0],
+      "model": ["2", 0],
+      "positive": ["9", 0],
+      "negative": ["9", 1],
+      "latent_image": ["9", 2],
       "seed": 42,
       "steps": 20,
       "cfg": 1.5,
       "sampler_name": "euler",
       "scheduler": "normal",
-      "denoise": 0.85
+      "denoise": 1.0
     },
     "_meta": {"title": "KSampler"}
   },
-  "10": {
+  "11": {
     "class_type": "VAEDecode",
     "inputs": {
-      "samples": ["9", 0],
-      "vae": ["3", 0]
+      "samples": ["10", 0],
+      "vae": ["4", 0]
     },
     "_meta": {"title": "VAE Decode"}
   },
-  "11": {
+  "12": {
     "class_type": "SaveImage",
     "inputs": {
-      "images": ["10", 0],
+      "images": ["11", 0],
       "filename_prefix": "nolimits_inpaint"
     },
     "_meta": {"title": "Save Image"}
