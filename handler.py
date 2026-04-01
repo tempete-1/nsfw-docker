@@ -263,8 +263,9 @@ def build_workflow(job_input: dict) -> dict:
     else:
         print("  No kira in prompt, skipping kira_lora")
 
-    # Add PuLID face swap if face_photo is provided
-    face_photo = job_input.get("face_photo")
+    # PuLID face swap — disabled until nodes are verified in Docker
+    # TODO: verify PuLID node names and re-enable
+    face_photo = None  # job_input.get("face_photo")
     if face_photo and face_photo.strip():
         pulid_model_path = "/runpod-volume/models/pulid/pulid_flux_v0.9.1.safetensors"
         if os.path.exists(pulid_model_path):
