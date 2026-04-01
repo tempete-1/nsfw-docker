@@ -424,28 +424,37 @@ def handler(job):
         print(f"Action: {job_input.get('action')}, Mode: {job_input.get('mode')}")
         print(f"Prompt: {job_input.get('prompt', '')[:100]}")
 
-        # Build workflow
-        workflow = build_workflow(job_input)
+        count = int(job_input.get("count", 1))
+        count = min(count, 4)  # max 4
+        print(f"Count: {count}")
 
-        # Queue prompt
-        prompt_id = queue_prompt(workflow)
-        print(f"Queued prompt: {prompt_id}")
-
-        # Poll for completion
-        outputs = poll_completion(prompt_id)
-
-        # Extract images
         images = []
-        for node_id, node_output in outputs.items():
-            if "images" in node_output:
-                for img in node_output["images"]:
-                    print(f"Fetching image: {img}")
-                    b64 = get_image_base64(
-                        img["filename"],
-                        img.get("subfolder", ""),
-                        img["type"],
-                    )
-                    images.append(b64)
+        for i in range(count):
+            import random
+            # Set unique seed for each iteration
+            job_input["seed"] = random.randint(0, 2**32 - 1)
+
+            # Build workflow
+            workflow = build_workflow(job_input)
+
+            # Queue prompt
+            prompt_id = queue_prompt(workflow)
+            print(f"Queued prompt {i+1}/{count}: {prompt_id}")
+
+            # Poll for completion
+            outputs = poll_completion(prompt_id)
+
+            # Extract images
+            for node_id, node_output in outputs.items():
+                if "images" in node_output:
+                    for img in node_output["images"]:
+                        print(f"Fetching image: {img}")
+                        b64 = get_image_base64(
+                            img["filename"],
+                            img.get("subfolder", ""),
+                            img["type"],
+                        )
+                        images.append(b64)
 
         print(f"Total images: {len(images)}")
         if not images:
