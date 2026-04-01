@@ -7,15 +7,6 @@
     },
     "_meta": {"title": "Load UNET (Fill)"}
   },
-  "2": {
-    "class_type": "LoraLoaderModelOnly",
-    "inputs": {
-      "model": ["1", 0],
-      "lora_name": "aidmaNSFWunlock-FLUX-V0.2.safetensors",
-      "strength_model": 0.50
-    },
-    "_meta": {"title": "NSFW LoRA"}
-  },
   "3": {
     "class_type": "DualCLIPLoader",
     "inputs": {
@@ -77,7 +68,7 @@
   "10": {
     "class_type": "KSampler",
     "inputs": {
-      "model": ["2", 0],
+      "model": ["1", 0],
       "positive": ["9", 0],
       "negative": ["9", 1],
       "latent_image": ["9", 2],
