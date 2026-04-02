@@ -11,19 +11,10 @@
     "class_type": "LoraLoaderModelOnly",
     "inputs": {
       "model": ["1", 0],
-      "lora_name": "perfect_hands_anatomy_flux.safetensors",
+      "lora_name": "flux_super_realism.safetensors",
       "strength_model": 0.40
     },
-    "_meta": {"title": "Perfect Hands LoRA"}
-  },
-  "3": {
-    "class_type": "LoraLoaderModelOnly",
-    "inputs": {
-      "model": ["2", 0],
-      "lora_name": "flux_realistic_hands.safetensors",
-      "strength_model": 0.30
-    },
-    "_meta": {"title": "Realistic Hands LoRA"}
+    "_meta": {"title": "Super Realism LoRA"}
   },
   "4": {
     "class_type": "DualCLIPLoader",
@@ -69,7 +60,7 @@
   "9": {
     "class_type": "KSampler",
     "inputs": {
-      "model": ["3", 0],
+      "model": ["2", 0],
       "positive": ["6", 0],
       "negative": ["7", 0],
       "latent_image": ["8", 0],
