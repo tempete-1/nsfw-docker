@@ -705,7 +705,7 @@ print("=== Linking ReActor models ===")
 link_model(
     ["/runpod-volume/models/insightface/inswapper_128.onnx",
      "/workspace/models/insightface/inswapper_128.onnx"],
-    "/comfyui/models/insightface/models/inswapper_128.onnx",
+    "/comfyui/models/insightface/inswapper_128.onnx",
 )
 link_model(
     ["/runpod-volume/models/facerestore_models/codeformer-v0.1.0.pth",
