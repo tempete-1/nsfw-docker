@@ -12,7 +12,7 @@
     "inputs": {
       "model": ["1", 0],
       "lora_name": "flux_super_realism.safetensors",
-      "strength_model": 0.40
+      "strength_model": 0.55
     },
     "_meta": {"title": "Super Realism LoRA"}
   },
@@ -66,7 +66,7 @@
       "latent_image": ["8", 0],
       "seed": 42,
       "steps": 20,
-      "cfg": 3.5,
+      "cfg": 5.0,
       "sampler_name": "dpmpp_2m_sde",
       "scheduler": "beta",
       "denoise": 1.0
