@@ -253,7 +253,7 @@ def build_workflow(job_input: dict) -> dict:
     workflow = load_workflow(workflow_name)
 
     prompt = job_input.get("prompt", "")
-    negative = job_input.get("negative", "blurry, ugly, deformed, low quality")
+    negative = job_input.get("negative", "blurry, ugly, deformed, low quality, extra fingers, mutated hands, bad hands, malformed limbs, extra limbs, fused fingers, too many fingers, bad anatomy, disfigured")
 
     # Conditionally add kira_lora if prompt mentions "kira"
     use_kira = "kira" in prompt.lower()
@@ -289,9 +289,8 @@ def build_workflow(job_input: dict) -> dict:
     else:
         print("  No kira in prompt, skipping kira_lora")
 
-    # PuLID face swap — disabled until nodes are verified in Docker
-    # TODO: verify PuLID node names and re-enable
-    face_photo = None  # job_input.get("face_photo")
+    # PuLID face swap
+    face_photo = job_input.get("face_photo")
     if face_photo and face_photo.strip():
         pulid_model_path = "/runpod-volume/models/pulid/pulid_flux_v0.9.1.safetensors"
         if os.path.exists(pulid_model_path):
@@ -359,16 +358,18 @@ def build_workflow(job_input: dict) -> dict:
         class_type = node.get("class_type", "")
         meta_title = str(node.get("_meta", {}).get("title", "")).lower()
 
-        # Set positive prompt
-        if class_type == "CLIPTextEncode" and "positive" in meta_title:
-            node["inputs"]["text"] = prompt
+        # Set positive prompt (CLIPTextEncode or WanClipTextEncode)
+        if class_type in ("CLIPTextEncode", "WanClipTextEncode") and "positive" in meta_title:
+            prompt_key = "prompt" if "prompt" in node["inputs"] else "text"
+            node["inputs"][prompt_key] = prompt
             print(f"  Set positive prompt on node {node_id}")
-        elif class_type == "CLIPTextEncode" and "negative" in meta_title:
-            node["inputs"]["text"] = negative
+        elif class_type in ("CLIPTextEncode", "WanClipTextEncode") and "negative" in meta_title:
+            prompt_key = "prompt" if "prompt" in node["inputs"] else "text"
+            node["inputs"][prompt_key] = negative
             print(f"  Set negative prompt on node {node_id}")
 
         # Set seed
-        if class_type == "KSampler":
+        if class_type in ("KSampler", "WanI2VSampler"):
             seed = job_input.get("seed", -1)
             if seed == -1:
                 import random
@@ -444,7 +445,7 @@ def handler(job):
             # Poll for completion
             outputs = poll_completion(prompt_id)
 
-            # Extract images
+            # Extract images / videos
             for node_id, node_output in outputs.items():
                 if "images" in node_output:
                     for img in node_output["images"]:
@@ -455,13 +456,31 @@ def handler(job):
                             img["type"],
                         )
                         images.append(b64)
+                if "gifs" in node_output:
+                    for vid in node_output["gifs"]:
+                        print(f"Fetching video: {vid}")
+                        b64 = get_image_base64(
+                            vid["filename"],
+                            vid.get("subfolder", ""),
+                            vid["type"],
+                        )
+                        images.append(b64)
 
         print(f"Total images: {len(images)}")
         if not images:
             print("WARNING: No images in outputs!")
             print(f"Full outputs: {json.dumps({k: list(v.keys()) for k, v in outputs.items()})}")
 
-        return {"status": "success", "images": images}
+        # Check for video files in output directory
+        videos = []
+        for ext in ("*.mp4", "*.webm", "*.webp"):
+            for vf in globmod.glob(f"/comfyui/output/{ext}"):
+                if "nolimits_video" in vf:
+                    with open(vf, "rb") as f:
+                        videos.append(base64.b64encode(f.read()).decode())
+                    print(f"Found video output: {vf}")
+
+        return {"status": "success", "images": images, "videos": videos}
 
     except Exception as e:
         import traceback

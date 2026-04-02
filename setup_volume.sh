@@ -48,6 +48,29 @@ echo "MANUAL: Download aidmaNSFWunlock-FLUX-V0.2.safetensors from CivitAI and pl
 echo "Downloading PuLID model..."
 huggingface-cli download guozinan/PuLID pulid_flux_v0.9.1.safetensors --local-dir $VOLUME/pulid/
 
+# ── Video models (Wan2.1 I2V) ──
+mkdir -p $VOLUME/wan
+
+echo "Downloading Wan2.1 I2V 14B 480P model..."
+huggingface-cli download Wan-AI/Wan2.1-I2V-14B-480P-Diffusers \
+  diffusion_pytorch_model.safetensors \
+  --local-dir $VOLUME/wan/Wan2.1-I2V-14B-480P/
+
+echo "Downloading Wan2.1 VAE..."
+huggingface-cli download Wan-AI/Wan2.1-I2V-14B-480P-Diffusers \
+  vae/diffusion_pytorch_model.safetensors \
+  --local-dir $VOLUME/wan/Wan2.1-I2V-14B-480P/
+
+echo "Downloading Wan2.1 text encoder..."
+huggingface-cli download Wan-AI/Wan2.1-I2V-14B-480P-Diffusers \
+  text_encoder/model.safetensors \
+  --local-dir $VOLUME/wan/Wan2.1-I2V-14B-480P/
+
+echo "Downloading Wan2.1 CLIP image encoder..."
+huggingface-cli download Wan-AI/Wan2.1-I2V-14B-480P-Diffusers \
+  image_encoder/model.safetensors \
+  --local-dir $VOLUME/wan/Wan2.1-I2V-14B-480P/
+
 echo ""
 echo "=== Manual steps remaining ==="
 echo "1. Upload kira_lora.safetensors to $VOLUME/loras/"
@@ -60,5 +83,6 @@ echo "ls -la $VOLUME/loras/"
 echo "ls -la $VOLUME/vae/"
 echo "ls -la $VOLUME/text_encoders/"
 echo "ls -la $VOLUME/pulid/"
+echo "ls -la $VOLUME/wan/"
 echo ""
 echo "=== Done ==="

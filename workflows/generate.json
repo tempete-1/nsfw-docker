@@ -12,7 +12,7 @@
     "inputs": {
       "model": ["1", 0],
       "lora_name": "aidmaNSFWunlock-FLUX-V0.2.safetensors",
-      "strength_model": 0.50
+      "strength_model": 0.35
     },
     "_meta": {"title": "NSFW LoRA"}
   },
@@ -44,7 +44,7 @@
     "class_type": "CLIPTextEncode",
     "inputs": {
       "clip": ["4", 0],
-      "text": "blurry, ugly, deformed, text, watermark, low quality, cartoon"
+      "text": "blurry, ugly, deformed, text, watermark, low quality, cartoon, extra fingers, mutated hands, bad hands, malformed limbs, extra limbs, fused fingers, too many fingers, long neck, bad anatomy, disfigured, poorly drawn face"
     },
     "_meta": {"title": "negative prompt"}
   },

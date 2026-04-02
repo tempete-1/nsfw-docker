@@ -6,7 +6,7 @@ ENV PYTHONUNBUFFERED=1
 # System deps
 RUN apt-get update && apt-get install -y \
     python3.11 python3.11-venv python3.11-dev python3-pip git wget \
-    build-essential cmake \
+    build-essential cmake ffmpeg \
     libgl1-mesa-glx libglib2.0-0 libsm6 libxrender1 libxext6 \
     && ln -sf /usr/bin/python3.11 /usr/bin/python3 \
     && ln -sf /usr/bin/python3.11 /usr/bin/python \
@@ -23,17 +23,26 @@ RUN pip3 install --no-cache-dir -r requirements.txt
 # Install custom nodes
 RUN cd custom_nodes && \
     git clone https://github.com/cubiq/PuLID_ComfyUI.git && \
-    git clone https://github.com/Fannovel16/comfyui_controlnet_aux.git
+    git clone https://github.com/Fannovel16/comfyui_controlnet_aux.git && \
+    git clone https://github.com/kijai/ComfyUI-WanVideoWrapper.git && \
+    git clone https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git && \
+    git clone https://github.com/kijai/ComfyUI-KJNodes.git
 
 # Install node dependencies
+RUN pip3 install --no-cache-dir onnxruntime-gpu 2>/dev/null || pip3 install --no-cache-dir onnxruntime
+RUN pip3 install --no-cache-dir insightface facexlib
 RUN cd custom_nodes/PuLID_ComfyUI && pip3 install --no-cache-dir -r requirements.txt 2>/dev/null || true
 RUN cd custom_nodes/comfyui_controlnet_aux && pip3 install --no-cache-dir -r requirements.txt 2>/dev/null || true
+RUN cd custom_nodes/ComfyUI-WanVideoWrapper && pip3 install --no-cache-dir -r requirements.txt 2>/dev/null || true
+RUN cd custom_nodes/ComfyUI-VideoHelperSuite && pip3 install --no-cache-dir -r requirements.txt 2>/dev/null || true
+RUN cd custom_nodes/ComfyUI-KJNodes && pip3 install --no-cache-dir -r requirements.txt 2>/dev/null || true
+RUN pip3 install --no-cache-dir ffmpeg-python
+
+# Verify PuLID nodes exist
+RUN ls -la custom_nodes/PuLID_ComfyUI/*.py | head -5
 
 # RunPod SDK + extras
-# Install deps separately to isolate failures
 RUN pip3 install --no-cache-dir runpod
-RUN pip3 install --no-cache-dir onnxruntime
-RUN pip3 install --no-cache-dir insightface
 RUN pip3 install --no-cache-dir Pillow
 
 # Copy config and handler
