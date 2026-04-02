@@ -19,6 +19,88 @@ import glob as globmod
 COMFY_HOST = "127.0.0.1:8188"
 comfy_process = None
 
+# ── Auto-detect pose LoRA by prompt keywords ──
+# Order matters: first match wins. More specific patterns go first.
+POSE_LORAS = [
+    {
+        "keywords": ["pov blowjob", "pov bj", "pov oral", "pov_blowjob"],
+        "file": "pov_blowjob.safetensors",
+        "strength": 1.0,
+        "trigger": "POV_BLOWJOB",
+    },
+    {
+        "keywords": ["deepthroat", "deep throat", "throat fuck"],
+        "file": "blowjob_deepthroat.safetensors",
+        "strength": 0.9,
+        "trigger": "DTSV",
+    },
+    {
+        "keywords": ["eye contact", "looking at viewer", "looking at camera", "eyes"],
+        "file": "eye_contact_blowjob.safetensors",
+        "strength": 0.7,
+        "trigger": "",
+    },
+    {
+        "keywords": ["double penetration from behind", "dp from behind", "dp anal"],
+        "file": "dp_from_behind.safetensors",
+        "strength": 0.9,
+        "trigger": "",
+    },
+    {
+        "keywords": ["double penetration doggystyle", "dp doggystyle", "dp doggy", "double penetration"],
+        "file": "dp_doggystyle.safetensors",
+        "strength": 0.95,
+        "trigger": "DPDS",
+    },
+    {
+        "keywords": ["blowjob", "bj", "oral", "sucking", "fellatio", "licking cock"],
+        "file": "blowjobside.safetensors",
+        "strength": 0.8,
+        "trigger": "BLOWJOBSIDE",
+    },
+    {
+        "keywords": ["cowgirl", "riding", "on top", "reverse cowgirl", "girl on top"],
+        "file": "flux_secrets_cowgirl.safetensors",
+        "strength": 1.0,
+        "trigger": "NUDE WOMAN AND A MAN, ON TOP OF A MAN, COWGIRL",
+    },
+    {
+        "keywords": ["handjob", "hand job", "stroking cock", "jerking off"],
+        "file": "handjob.safetensors",
+        "strength": 0.8,
+        "trigger": "",
+    },
+    {
+        "keywords": ["doggystyle", "doggy", "from behind", "bent over"],
+        "file": "cowgirl.safetensors",
+        "strength": 0.7,
+        "trigger": "",
+    },
+    {
+        "keywords": ["missionary", "lying on back", "on her back"],
+        "file": "cowgirl.safetensors",
+        "strength": 0.6,
+        "trigger": "",
+    },
+]
+
+LORA_BASE_PATH = "/runpod-volume/models/loras"
+
+
+def detect_pose_lora(prompt: str) -> dict | None:
+    """Find the best matching pose LoRA based on prompt keywords."""
+    prompt_lower = prompt.lower()
+    for lora in POSE_LORAS:
+        for kw in lora["keywords"]:
+            if kw in prompt_lower:
+                fpath = os.path.join(LORA_BASE_PATH, lora["file"])
+                if os.path.exists(fpath):
+                    print(f"  Pose LoRA matched: {lora['file']} (keyword='{kw}', strength={lora['strength']})")
+                    return lora
+                else:
+                    print(f"  Pose LoRA matched but file missing: {fpath}")
+    return None
+
 
 def start_comfyui():
     """Start ComfyUI subprocess and wait until ready."""
@@ -255,44 +337,81 @@ def build_workflow(job_input: dict) -> dict:
     prompt = job_input.get("prompt", "")
     negative = job_input.get("negative", "blurry, ugly, deformed, low quality, extra fingers, mutated hands, bad hands, malformed limbs, extra limbs, fused fingers, too many fingers, bad anatomy, disfigured")
 
-    # Conditionally add kira_lora if prompt mentions "kira"
+    # ── Auto-detect and add pose LoRA ──
+    pose_lora = detect_pose_lora(prompt)
+    if pose_lora:
+        # Add trigger words to prompt if specified
+        if pose_lora["trigger"]:
+            prompt = pose_lora["trigger"] + ", " + prompt
+            job_input["prompt"] = prompt
+            print(f"  Prepended trigger: {pose_lora['trigger']}")
+
+        # Find the last LoRA node and KSampler to chain pose LoRA
+        last_model_ref = None
+        last_lora_id = None
+        for nid, n in workflow.items():
+            if n.get("class_type") in ("LoraLoaderModelOnly", "LoraLoader"):
+                last_lora_id = nid
+        sampler_id = None
+        for nid, n in workflow.items():
+            if n.get("class_type") == "KSampler":
+                sampler_id = nid
+
+        if sampler_id:
+            # Chain: existing LoRA(s) → pose LoRA → KSampler
+            if last_lora_id:
+                model_source = [last_lora_id, 0]
+            else:
+                model_source = workflow[sampler_id]["inputs"]["model"]
+
+            pose_node_id = "80"
+            workflow[pose_node_id] = {
+                "class_type": "LoraLoaderModelOnly",
+                "inputs": {
+                    "model": model_source,
+                    "lora_name": pose_lora["file"],
+                    "strength_model": pose_lora["strength"],
+                },
+                "_meta": {"title": f"Pose LoRA ({pose_lora['file']})"},
+            }
+            workflow[sampler_id]["inputs"]["model"] = [pose_node_id, 0]
+            print(f"  Added pose LoRA node {pose_node_id}: {pose_lora['file']}")
+    else:
+        print("  No pose LoRA matched")
+
+    # ── Conditionally add kira_lora if prompt mentions "kira" ──
     use_kira = "kira" in prompt.lower()
     if use_kira:
-        kira_lora_path = "/runpod-volume/models/loras/kira_lora.safetensors"
+        kira_lora_path = os.path.join(LORA_BASE_PATH, "kira_lora.safetensors")
         if os.path.exists(kira_lora_path):
-            # Find the last LoRA node and the KSampler to insert kira between them
-            last_lora_id = None
-            for nid, n in workflow.items():
-                if n.get("class_type") in ("LoraLoaderModelOnly", "LoraLoader"):
-                    last_lora_id = nid
+            # Chain after whatever is currently feeding KSampler
             sampler_id = None
             for nid, n in workflow.items():
                 if n.get("class_type") == "KSampler":
                     sampler_id = nid
-
-            if last_lora_id and sampler_id:
-                kira_id = "99"  # use high ID to avoid conflicts
+            if sampler_id:
+                current_model = workflow[sampler_id]["inputs"]["model"]
+                kira_id = "99"
                 workflow[kira_id] = {
                     "class_type": "LoraLoaderModelOnly",
                     "inputs": {
-                        "model": [last_lora_id, 0],
+                        "model": current_model,
                         "lora_name": "kira_lora.safetensors",
                         "strength_model": job_input.get("lora_strength", 0.70),
                     },
                     "_meta": {"title": "Character LoRA (Kira)"},
                 }
-                # Point KSampler to kira LoRA output
                 workflow[sampler_id]["inputs"]["model"] = [kira_id, 0]
                 print(f"  Added kira_lora (node {kira_id})")
         else:
-            print(f"  WARNING: kira_lora not found at {kira_lora_path}, skipping")
+            print(f"  WARNING: kira_lora not found at {kira_lora_path}")
     else:
         print("  No kira in prompt, skipping kira_lora")
 
     # PuLID face swap
     face_photo = job_input.get("face_photo")
     if face_photo and face_photo.strip():
-        pulid_model_path = "/runpod-volume/models/pulid/pulid_flux_v0.9.1.safetensors"
+        pulid_model_path = os.path.join(LORA_BASE_PATH, "../pulid/pulid_flux_v0.9.1.safetensors")
         if os.path.exists(pulid_model_path):
             # Save face image
             face_fname = save_base64_image(face_photo, "face")
