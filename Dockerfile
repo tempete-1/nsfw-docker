@@ -27,7 +27,7 @@ RUN cd custom_nodes && \
     git clone https://github.com/kijai/ComfyUI-WanVideoWrapper.git && \
     git clone https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git && \
     git clone https://github.com/kijai/ComfyUI-KJNodes.git && \
-    git clone https://github.com/Gourieff/comfyui-reactor-node.git
+    git clone https://github.com/mav-rik/facerestore_cf.git
 
 # Install node dependencies
 RUN pip3 install --no-cache-dir onnxruntime-gpu 2>/dev/null || pip3 install --no-cache-dir onnxruntime
@@ -37,7 +37,7 @@ RUN cd custom_nodes/comfyui_controlnet_aux && pip3 install --no-cache-dir -r req
 RUN cd custom_nodes/ComfyUI-WanVideoWrapper && pip3 install --no-cache-dir -r requirements.txt 2>/dev/null || true
 RUN cd custom_nodes/ComfyUI-VideoHelperSuite && pip3 install --no-cache-dir -r requirements.txt 2>/dev/null || true
 RUN cd custom_nodes/ComfyUI-KJNodes && pip3 install --no-cache-dir -r requirements.txt 2>/dev/null || true
-RUN cd custom_nodes/comfyui-reactor-node && pip3 install --no-cache-dir -r requirements.txt 2>/dev/null || true
+RUN cd custom_nodes/facerestore_cf && pip3 install --no-cache-dir -r requirements.txt 2>/dev/null || true
 RUN pip3 install --no-cache-dir ffmpeg-python
 
 # Verify PuLID nodes exist
