@@ -684,8 +684,30 @@ def handler(job):
         return {"status": "error", "error": str(e), "traceback": tb, "images": []}
 
 
-# ── Cold start: launch ComfyUI ──
+# ── Cold start: setup models and launch ComfyUI ──
 print("=== RunPod ComfyUI Handler Starting ===")
+
+# Copy ReActor models to where ComfyUI/ReActor expects them
+import shutil
+
+# inswapper model for ReActor
+reactor_models_dir = "/comfyui/models/insightface"
+os.makedirs(reactor_models_dir, exist_ok=True)
+src_inswapper = "/runpod-volume/models/insightface/inswapper_128.onnx"
+dst_inswapper = os.path.join(reactor_models_dir, "inswapper_128.onnx")
+if os.path.exists(src_inswapper) and not os.path.exists(dst_inswapper):
+    os.symlink(src_inswapper, dst_inswapper)
+    print(f"Linked {src_inswapper} -> {dst_inswapper}")
+
+# CodeFormer model for face restore
+facerestore_dir = "/comfyui/models/facerestore_models"
+os.makedirs(facerestore_dir, exist_ok=True)
+src_codeformer = "/runpod-volume/models/facerestore_models/codeformer-v0.1.0.pth"
+dst_codeformer = os.path.join(facerestore_dir, "codeformer-v0.1.0.pth")
+if os.path.exists(src_codeformer) and not os.path.exists(dst_codeformer):
+    os.symlink(src_codeformer, dst_codeformer)
+    print(f"Linked {src_codeformer} -> {dst_codeformer}")
+
 check_models()
 if not start_comfyui():
     print("FATAL: ComfyUI did not start")
