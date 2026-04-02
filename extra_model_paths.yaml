@@ -5,3 +5,9 @@ runpod_volume:
     vae: vae/
     clip: text_encoders/
     controlnet: controlnet/
+    unet: wan/
+wan_models:
+    base_path: /runpod-volume/models/wan
+    diffusion_models: ./
+    vae: ./
+    clip: ./
