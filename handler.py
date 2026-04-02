@@ -277,7 +277,7 @@ def build_workflow(job_input: dict) -> dict:
                     "inputs": {
                         "model": [last_lora_id, 0],
                         "lora_name": "kira_lora.safetensors",
-                        "strength_model": job_input.get("lora_strength", 0.95),
+                        "strength_model": job_input.get("lora_strength", 0.70),
                     },
                     "_meta": {"title": "Character LoRA (Kira)"},
                 }

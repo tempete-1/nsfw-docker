@@ -2,7 +2,7 @@
   "1": {
     "class_type": "UNETLoader",
     "inputs": {
-      "unet_name": "flux1-dev.safetensors",
+      "unet_name": "fux_capacity_v5.1_fp16.safetensors",
       "weight_dtype": "fp8_e4m3fn"
     },
     "_meta": {"title": "Load UNET"}
@@ -11,10 +11,19 @@
     "class_type": "LoraLoaderModelOnly",
     "inputs": {
       "model": ["1", 0],
-      "lora_name": "aidmaNSFWunlock-FLUX-V0.2.safetensors",
-      "strength_model": 0.50
+      "lora_name": "perfect_hands_anatomy_flux.safetensors",
+      "strength_model": 0.40
     },
-    "_meta": {"title": "NSFW LoRA"}
+    "_meta": {"title": "Perfect Hands LoRA"}
+  },
+  "3": {
+    "class_type": "LoraLoaderModelOnly",
+    "inputs": {
+      "model": ["2", 0],
+      "lora_name": "flux_realistic_hands.safetensors",
+      "strength_model": 0.30
+    },
+    "_meta": {"title": "Realistic Hands LoRA"}
   },
   "4": {
     "class_type": "DualCLIPLoader",
@@ -36,7 +45,7 @@
     "class_type": "CLIPTextEncode",
     "inputs": {
       "clip": ["4", 0],
-      "text": "AIARTY, beautiful woman, photorealistic, 8k, sharp focus"
+      "text": "placeholder"
     },
     "_meta": {"title": "positive prompt"}
   },
@@ -44,7 +53,7 @@
     "class_type": "CLIPTextEncode",
     "inputs": {
       "clip": ["4", 0],
-      "text": "blurry, ugly, deformed, text, watermark, low quality, cartoon, extra fingers, mutated hands, bad hands, malformed limbs, extra limbs, fused fingers, too many fingers, long neck, bad anatomy, disfigured, poorly drawn face"
+      "text": "blurry, ugly, deformed, text, watermark, low quality, cartoon, extra fingers, mutated hands, bad hands, malformed limbs, extra limbs, fused fingers, too many fingers, bad anatomy, disfigured, poorly drawn face, bad proportions, floating limbs, disconnected body parts"
     },
     "_meta": {"title": "negative prompt"}
   },
@@ -60,13 +69,13 @@
   "9": {
     "class_type": "KSampler",
     "inputs": {
-      "model": ["2", 0],
+      "model": ["3", 0],
       "positive": ["6", 0],
       "negative": ["7", 0],
       "latent_image": ["8", 0],
       "seed": 42,
-      "steps": 25,
-      "cfg": 1.5,
+      "steps": 20,
+      "cfg": 3.5,
       "sampler_name": "dpmpp_2m_sde",
       "scheduler": "beta",
       "denoise": 1.0
