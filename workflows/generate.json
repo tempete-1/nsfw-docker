@@ -2,8 +2,8 @@
   "1": {
     "class_type": "UNETLoader",
     "inputs": {
-      "unet_name": "fluxUnchainedBySCG_hyfu8StepHybridV10.safetensors",
-      "weight_dtype": "default"
+      "unet_name": "flux1-dev.safetensors",
+      "weight_dtype": "fp8_e4m3fn"
     },
     "_meta": {"title": "Load UNET"}
   },
@@ -65,7 +65,7 @@
       "negative": ["7", 0],
       "latent_image": ["8", 0],
       "seed": 42,
-      "steps": 8,
+      "steps": 25,
       "cfg": 1.5,
       "sampler_name": "dpmpp_2m_sde",
       "scheduler": "beta",
