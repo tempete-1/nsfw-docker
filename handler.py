@@ -687,26 +687,31 @@ def handler(job):
 # ── Cold start: setup models and launch ComfyUI ──
 print("=== RunPod ComfyUI Handler Starting ===")
 
-# Copy ReActor models to where ComfyUI/ReActor expects them
-import shutil
+# Link ReActor/CodeFormer models from network volume to ComfyUI
+def link_model(src_paths, dst_path):
+    """Try multiple source paths, symlink first found to dst."""
+    if os.path.exists(dst_path):
+        print(f"  Already exists: {dst_path}")
+        return
+    for src in src_paths:
+        if os.path.exists(src):
+            os.makedirs(os.path.dirname(dst_path), exist_ok=True)
+            os.symlink(src, dst_path)
+            print(f"  Linked: {src} -> {dst_path}")
+            return
+    print(f"  WARNING: model not found in any of {src_paths}")
 
-# inswapper model for ReActor
-reactor_models_dir = "/comfyui/models/insightface"
-os.makedirs(reactor_models_dir, exist_ok=True)
-src_inswapper = "/runpod-volume/models/insightface/inswapper_128.onnx"
-dst_inswapper = os.path.join(reactor_models_dir, "inswapper_128.onnx")
-if os.path.exists(src_inswapper) and not os.path.exists(dst_inswapper):
-    os.symlink(src_inswapper, dst_inswapper)
-    print(f"Linked {src_inswapper} -> {dst_inswapper}")
-
-# CodeFormer model for face restore
-facerestore_dir = "/comfyui/models/facerestore_models"
-os.makedirs(facerestore_dir, exist_ok=True)
-src_codeformer = "/runpod-volume/models/facerestore_models/codeformer-v0.1.0.pth"
-dst_codeformer = os.path.join(facerestore_dir, "codeformer-v0.1.0.pth")
-if os.path.exists(src_codeformer) and not os.path.exists(dst_codeformer):
-    os.symlink(src_codeformer, dst_codeformer)
-    print(f"Linked {src_codeformer} -> {dst_codeformer}")
+print("=== Linking ReActor models ===")
+link_model(
+    ["/runpod-volume/models/insightface/inswapper_128.onnx",
+     "/workspace/models/insightface/inswapper_128.onnx"],
+    "/comfyui/models/insightface/inswapper_128.onnx",
+)
+link_model(
+    ["/runpod-volume/models/facerestore_models/codeformer-v0.1.0.pth",
+     "/workspace/models/facerestore_models/codeformer-v0.1.0.pth"],
+    "/comfyui/models/facerestore_models/codeformer-v0.1.0.pth",
+)
 
 check_models()
 if not start_comfyui():

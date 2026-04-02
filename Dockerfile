@@ -54,7 +54,9 @@ COPY extra_model_paths.yaml /comfyui/extra_model_paths.yaml
 COPY handler.py /handler.py
 COPY workflows/ /workflows/
 
-# Create input dir for uploaded images
-RUN mkdir -p /comfyui/input
+# Create dirs for ReActor models (will be symlinked from volume at runtime)
+RUN mkdir -p /comfyui/input \
+    /comfyui/models/insightface \
+    /comfyui/models/facerestore_models
 
 CMD ["python3", "-u", "/handler.py"]
