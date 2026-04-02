@@ -309,21 +309,21 @@ def build_workflow(job_input: dict) -> dict:
             if sampler_id and sampler_model_ref:
                 # Add PuLID nodes
                 workflow["90"] = {
-                    "class_type": "PulidFluxModelLoader",
+                    "class_type": "PulidModelLoader",
                     "inputs": {
                         "pulid_file": "pulid_flux_v0.9.1.safetensors",
                     },
                     "_meta": {"title": "PuLID Model"},
                 }
                 workflow["91"] = {
-                    "class_type": "PulidFluxInsightFaceLoader",
+                    "class_type": "PulidInsightFaceLoader",
                     "inputs": {
                         "provider": "CPU",
                     },
                     "_meta": {"title": "PuLID InsightFace"},
                 }
                 workflow["92"] = {
-                    "class_type": "PulidFluxEvaClipLoader",
+                    "class_type": "PulidEvaClipLoader",
                     "inputs": {},
                     "_meta": {"title": "PuLID EVA CLIP"},
                 }
@@ -335,10 +335,10 @@ def build_workflow(job_input: dict) -> dict:
                     "_meta": {"title": "Face Reference"},
                 }
                 workflow["94"] = {
-                    "class_type": "ApplyPulidFlux",
+                    "class_type": "ApplyPulid",
                     "inputs": {
                         "model": sampler_model_ref,
-                        "pulid_flux": ["90", 0],
+                        "pulid": ["90", 0],
                         "eva_clip": ["92", 0],
                         "face_analysis": ["91", 0],
                         "image": ["93", 0],
