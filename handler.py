@@ -536,8 +536,8 @@ def build_workflow(job_input: dict) -> dict:
     return workflow
 
 
-def build_face_restore_workflow(generated_image_fname: str) -> dict:
-    """Build CodeFormer face restore workflow: fix face quality after img2img."""
+def build_face_restore_workflow(generated_image_fname: str, original_face_fname: str) -> dict:
+    """Build ReActor face swap workflow: paste original face onto generated image."""
     return {
         "1": {
             "class_type": "LoadImage",
@@ -545,18 +545,32 @@ def build_face_restore_workflow(generated_image_fname: str) -> dict:
             "_meta": {"title": "Generated Image"},
         },
         "2": {
-            "class_type": "FaceRestoreCFCodeFormer",
-            "inputs": {
-                "image": ["1", 0],
-                "fidelity": 0.7,
-                "facerestore_model": "codeformer-v0.1.0.pth",
-            },
-            "_meta": {"title": "CodeFormer Face Restore"},
+            "class_type": "LoadImage",
+            "inputs": {"image": original_face_fname},
+            "_meta": {"title": "Original Face"},
         },
         "3": {
+            "class_type": "ReActorFaceSwap",
+            "inputs": {
+                "input_image": ["1", 0],
+                "source_image": ["2", 0],
+                "swap_model": "inswapper_128.onnx",
+                "facedetection": "retinaface_resnet50",
+                "face_restore_model": "codeformer-v0.1.0.pth",
+                "face_restore_visibility": 1.0,
+                "codeformer_weight": 0.7,
+                "detect_gender_input": "no",
+                "detect_gender_source": "no",
+                "input_faces_index": "0",
+                "source_faces_index": "0",
+                "console_log_level": 1,
+            },
+            "_meta": {"title": "ReActor Face Swap"},
+        },
+        "4": {
             "class_type": "SaveImage",
             "inputs": {
-                "images": ["2", 0],
+                "images": ["3", 0],
                 "filename_prefix": "nolimits_facerestore",
             },
             "_meta": {"title": "Save Result"},
@@ -577,6 +591,12 @@ def handler(job):
         need_face_restore = (
             mode in ("edit_dark", "edit_easy") or action in ("edit", "dark_beast")
         ) and job_input.get("photo")
+
+        # Save original photo for face restore before generation
+        original_face_fname = None
+        if need_face_restore:
+            original_face_fname = save_base64_image(job_input["photo"], "origface")
+            print(f"  Saved original face for restore: {original_face_fname}")
 
         count = int(job_input.get("count", 1))
         count = min(count, 4)  # max 4
@@ -609,11 +629,11 @@ def handler(job):
                             img["type"],
                         )
                         # Face restore pass for edit modes
-                        if need_face_restore:
+                        if need_face_restore and original_face_fname:
                             try:
                                 print(f"  Running face restore pass...")
                                 gen_fname = save_base64_image(b64, "gen")
-                                fr_workflow = build_face_restore_workflow(gen_fname)
+                                fr_workflow = build_face_restore_workflow(gen_fname, original_face_fname)
                                 fr_prompt_id = queue_prompt(fr_workflow)
                                 fr_outputs = poll_completion(fr_prompt_id)
                                 # Get face-restored image
