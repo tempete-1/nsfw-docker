@@ -6,6 +6,8 @@ runpod_volume:
     clip: text_encoders/
     controlnet: controlnet/
     unet: wan/
+    insightface: insightface/
+    facerestore_models: facerestore_models/
 wan_models:
     base_path: /runpod-volume/models/wan
     diffusion_models: ./
