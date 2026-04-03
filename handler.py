@@ -418,70 +418,7 @@ def build_workflow(job_input: dict) -> dict:
     else:
         print("  No kira in prompt, skipping kira_lora")
 
-    # PuLID face swap
-    face_photo = job_input.get("face_photo")
-    if face_photo and face_photo.strip():
-        pulid_model_path = os.path.join(LORA_BASE_PATH, "../pulid/pulid_flux_v0.9.1.safetensors")
-        if os.path.exists(pulid_model_path):
-            # Save face image
-            face_fname = save_base64_image(face_photo, "face")
-            print(f"  Face photo saved: {face_fname}")
-
-            # Find the model node that KSampler uses
-            sampler_id = None
-            sampler_model_ref = None
-            for nid, n in workflow.items():
-                if n.get("class_type") == "KSampler":
-                    sampler_id = nid
-                    sampler_model_ref = n["inputs"]["model"]
-
-            if sampler_id and sampler_model_ref:
-                # Add PuLID nodes
-                workflow["90"] = {
-                    "class_type": "PulidModelLoader",
-                    "inputs": {
-                        "pulid_file": "pulid_flux_v0.9.1.safetensors",
-                    },
-                    "_meta": {"title": "PuLID Model"},
-                }
-                workflow["91"] = {
-                    "class_type": "PulidInsightFaceLoader",
-                    "inputs": {
-                        "provider": "CPU",
-                    },
-                    "_meta": {"title": "PuLID InsightFace"},
-                }
-                workflow["92"] = {
-                    "class_type": "PulidEvaClipLoader",
-                    "inputs": {},
-                    "_meta": {"title": "PuLID EVA CLIP"},
-                }
-                workflow["93"] = {
-                    "class_type": "LoadImage",
-                    "inputs": {
-                        "image": face_fname,
-                    },
-                    "_meta": {"title": "Face Reference"},
-                }
-                workflow["94"] = {
-                    "class_type": "ApplyPulid",
-                    "inputs": {
-                        "model": sampler_model_ref,
-                        "pulid": ["90", 0],
-                        "eva_clip": ["92", 0],
-                        "face_analysis": ["91", 0],
-                        "image": ["93", 0],
-                        "weight": 0.9,
-                        "start_at": 0.0,
-                        "end_at": 1.0,
-                    },
-                    "_meta": {"title": "Apply PuLID"},
-                }
-                # Point KSampler to PuLID output
-                workflow[sampler_id]["inputs"]["model"] = ["94", 0]
-                print(f"  Added PuLID face swap nodes (90-94)")
-        else:
-            print(f"  WARNING: PuLID model not found at {pulid_model_path}")
+    # PuLID removed — using InstantID instead (applied as post-processing in handler)
 
     for node_id, node in workflow.items():
         class_type = node.get("class_type", "")
