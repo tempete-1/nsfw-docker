@@ -11,7 +11,7 @@
     "class_type": "CLIPLoader",
     "inputs": {
       "clip_name": "zimage_te_001.safetensors",
-      "type": "llama"
+      "type": "lumina2"
     },
     "_meta": {"title": "CLIP Loader (Gemma)"}
   },

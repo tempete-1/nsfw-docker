@@ -321,8 +321,9 @@ def build_workflow(job_input: dict) -> dict:
     action = job_input.get("action", "generate")
     mode = job_input.get("mode", "generate")
 
-    # Use Z-Image for generate, Flux for everything else
-    use_zimage = (mode == "generate" and action == "generate")
+    # Use Z-Image for generate (disabled until text encoder is fixed)
+    # TODO: enable when zimage text encoder single-file is downloaded
+    use_zimage = False  # (mode == "generate" and action == "generate")
 
     workflow_map = {
         "generate": "generate_zimage" if use_zimage else "generate",
