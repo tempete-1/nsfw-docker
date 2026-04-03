@@ -64,6 +64,7 @@ COPY workflows/ /workflows/
 RUN mkdir -p /comfyui/input \
     /comfyui/models/insightface \
     /comfyui/models/facerestore_models \
-    /comfyui/models/instantid
+    /comfyui/models/instantid \
+    /comfyui/models/controlnet
 
 CMD ["python3", "-u", "/handler.py"]

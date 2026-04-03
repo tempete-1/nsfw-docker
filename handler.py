@@ -418,7 +418,75 @@ def build_workflow(job_input: dict) -> dict:
     else:
         print("  No kira in prompt, skipping kira_lora")
 
-    # PuLID removed — using InstantID instead (applied as post-processing in handler)
+    # ── InstantID face swap (if face_photo provided) ──
+    face_photo = job_input.get("face_photo")
+    if face_photo and face_photo.strip() and not use_zimage:
+        face_fname = save_base64_image(face_photo, "face")
+        print(f"  Face photo saved: {face_fname}")
+
+        # Find KSampler and its model/positive/negative refs
+        sampler_id = None
+        for nid, n in workflow.items():
+            if n.get("class_type") == "KSampler":
+                sampler_id = nid
+
+        if sampler_id:
+            current_model = workflow[sampler_id]["inputs"]["model"]
+            current_positive = workflow[sampler_id]["inputs"]["positive"]
+            current_negative = workflow[sampler_id]["inputs"]["negative"]
+
+            # Add InstantID nodes
+            workflow["70"] = {
+                "class_type": "InstantIDModelLoader",
+                "inputs": {
+                    "instantid_file": "ip-adapter.bin",
+                },
+                "_meta": {"title": "InstantID Model"},
+            }
+            workflow["71"] = {
+                "class_type": "InstantIDFaceAnalysis",
+                "inputs": {
+                    "provider": "CUDA",
+                },
+                "_meta": {"title": "InstantID Face Analysis"},
+            }
+            workflow["72"] = {
+                "class_type": "LoadImage",
+                "inputs": {
+                    "image": face_fname,
+                },
+                "_meta": {"title": "Face Reference"},
+            }
+            workflow["73"] = {
+                "class_type": "ControlNetLoader",
+                "inputs": {
+                    "control_net_name": "instantid_controlnet.safetensors",
+                },
+                "_meta": {"title": "InstantID ControlNet"},
+            }
+            workflow["74"] = {
+                "class_type": "ApplyInstantID",
+                "inputs": {
+                    "instantid": ["70", 0],
+                    "insightface": ["71", 0],
+                    "control_net": ["73", 0],
+                    "image": ["72", 0],
+                    "model": current_model,
+                    "positive": current_positive,
+                    "negative": current_negative,
+                    "weight": 0.8,
+                    "start_at": 0.0,
+                    "end_at": 1.0,
+                },
+                "_meta": {"title": "Apply InstantID"},
+            }
+            # Point KSampler to InstantID outputs
+            workflow[sampler_id]["inputs"]["model"] = ["74", 0]
+            workflow[sampler_id]["inputs"]["positive"] = ["74", 1]
+            workflow[sampler_id]["inputs"]["negative"] = ["74", 2]
+            print(f"  Added InstantID face swap nodes (70-74)")
+    elif face_photo and use_zimage:
+        print("  WARNING: InstantID not compatible with Z-Image, skipping face swap")
 
     for node_id, node in workflow.items():
         class_type = node.get("class_type", "")
@@ -717,6 +785,22 @@ link_model(
      "/workspace/models/instantid/ip-adapter.bin"],
     "/comfyui/models/instantid/ip-adapter.bin",
 )
+link_model(
+    ["/runpod-volume/models/controlnet/instantid_controlnet.safetensors",
+     "/workspace/models/controlnet/instantid_controlnet.safetensors"],
+    "/comfyui/models/controlnet/instantid_controlnet.safetensors",
+)
+# AntelopeV2 face analysis models for InstantID
+antelope_src = "/runpod-volume/models/insightface/models/antelopev2"
+antelope_alt = "/workspace/models/insightface/models/antelopev2"
+antelope_dst = "/comfyui/models/insightface/models/antelopev2"
+if not os.path.exists(antelope_dst):
+    for src in [antelope_src, antelope_alt]:
+        if os.path.exists(src):
+            os.makedirs(os.path.dirname(antelope_dst), exist_ok=True)
+            os.symlink(src, antelope_dst)
+            print(f"  Linked: {src} -> {antelope_dst}")
+            break
 
 check_models()
 if not start_comfyui():
