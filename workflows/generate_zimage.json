@@ -1,0 +1,90 @@
+{
+  "1": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "zimage_turbo_nsfw.safetensors",
+      "weight_dtype": "bf16"
+    },
+    "_meta": {"title": "Load Z-Image Turbo NSFW"}
+  },
+  "2": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "zimage_te_001.safetensors",
+      "type": "llama"
+    },
+    "_meta": {"title": "CLIP Loader (Gemma)"}
+  },
+  "3": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "zimage_vae_dc.safetensors"
+    },
+    "_meta": {"title": "VAE Loader"}
+  },
+  "4": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": ["2", 0],
+      "text": "placeholder"
+    },
+    "_meta": {"title": "positive prompt"}
+  },
+  "5": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": ["2", 0],
+      "text": ""
+    },
+    "_meta": {"title": "negative prompt"}
+  },
+  "6": {
+    "class_type": "EmptySD3LatentImage",
+    "inputs": {
+      "width": 768,
+      "height": 1024,
+      "batch_size": 1
+    },
+    "_meta": {"title": "Empty Latent"}
+  },
+  "7": {
+    "class_type": "ModelSamplingAuraFlow",
+    "inputs": {
+      "model": ["1", 0],
+      "shift": 6.0
+    },
+    "_meta": {"title": "Model Sampling"}
+  },
+  "8": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": ["7", 0],
+      "positive": ["4", 0],
+      "negative": ["5", 0],
+      "latent_image": ["6", 0],
+      "seed": 42,
+      "steps": 8,
+      "cfg": 3.5,
+      "sampler_name": "euler",
+      "scheduler": "beta",
+      "denoise": 1.0
+    },
+    "_meta": {"title": "KSampler"}
+  },
+  "9": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": ["8", 0],
+      "vae": ["3", 0]
+    },
+    "_meta": {"title": "VAE Decode"}
+  },
+  "10": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": ["9", 0],
+      "filename_prefix": "nolimits_zimage"
+    },
+    "_meta": {"title": "Save Image"}
+  }
+}

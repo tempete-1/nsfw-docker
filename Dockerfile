@@ -28,7 +28,10 @@ RUN cd custom_nodes && \
     git clone https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git && \
     git clone https://github.com/kijai/ComfyUI-KJNodes.git && \
     git clone https://github.com/mav-rik/facerestore_cf.git && \
-    git clone https://codeberg.org/Gourieff/comfyui-reactor-node.git
+    git clone https://codeberg.org/Gourieff/comfyui-reactor-node.git && \
+    git clone https://github.com/nunchaku-ai/ComfyUI-nunchaku.git && \
+    git clone https://github.com/capitan01R/Comfyui-ZiT-Lora-loader.git && \
+    git clone https://github.com/cubiq/ComfyUI_InstantID.git
 
 # Install node dependencies
 RUN pip3 install --no-cache-dir onnxruntime-gpu 2>/dev/null || pip3 install --no-cache-dir onnxruntime
@@ -40,6 +43,9 @@ RUN cd custom_nodes/ComfyUI-VideoHelperSuite && pip3 install --no-cache-dir -r r
 RUN cd custom_nodes/ComfyUI-KJNodes && pip3 install --no-cache-dir -r requirements.txt 2>/dev/null || true
 RUN cd custom_nodes/facerestore_cf && pip3 install --no-cache-dir -r requirements.txt 2>/dev/null || true
 RUN cd custom_nodes/comfyui-reactor-node && pip3 install --no-cache-dir -r requirements.txt 2>/dev/null || true
+RUN cd custom_nodes/ComfyUI_InstantID && pip3 install --no-cache-dir -r requirements.txt 2>/dev/null || true
+RUN cd custom_nodes/ComfyUI-nunchaku && pip3 install --no-cache-dir -r requirements.txt 2>/dev/null || true
+RUN pip3 install --no-cache-dir nunchaku 2>/dev/null || true
 RUN pip3 install --no-cache-dir ffmpeg-python
 
 # Verify PuLID nodes exist
@@ -57,6 +63,7 @@ COPY workflows/ /workflows/
 # Create dirs for ReActor models (will be symlinked from volume at runtime)
 RUN mkdir -p /comfyui/input \
     /comfyui/models/insightface \
-    /comfyui/models/facerestore_models
+    /comfyui/models/facerestore_models \
+    /comfyui/models/instantid
 
 CMD ["python3", "-u", "/handler.py"]

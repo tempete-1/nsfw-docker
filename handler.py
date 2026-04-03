@@ -321,8 +321,11 @@ def build_workflow(job_input: dict) -> dict:
     action = job_input.get("action", "generate")
     mode = job_input.get("mode", "generate")
 
+    # Use Z-Image for generate, Flux for everything else
+    use_zimage = (mode == "generate" and action == "generate")
+
     workflow_map = {
-        "generate": "generate",
+        "generate": "generate_zimage" if use_zimage else "generate",
         "inpaint": "inpaint",
         "video": "video",
         "edit_easy": "edit_easy",
@@ -331,14 +334,21 @@ def build_workflow(job_input: dict) -> dict:
         "dark_beast": "edit_dark",
     }
     workflow_name = workflow_map.get(mode, workflow_map.get(action, "generate"))
-    print(f"Loading workflow: {workflow_name} (action={action}, mode={mode})")
+    print(f"Loading workflow: {workflow_name} (action={action}, mode={mode}, zimage={use_zimage})")
     workflow = load_workflow(workflow_name)
 
     prompt = job_input.get("prompt", "")
     negative = job_input.get("negative", "blurry, ugly, deformed, low quality, extra fingers, mutated hands, bad hands, malformed limbs, extra limbs, fused fingers, too many fingers, bad anatomy, disfigured")
 
-    # ── Auto-detect and add pose LoRA ──
-    pose_lora = detect_pose_lora(prompt)
+    # Z-Image: add trigger word, skip pose LoRA (not compatible)
+    if use_zimage:
+        if "99bsy99" not in prompt:
+            prompt = "99bsy99, " + prompt
+            job_input["prompt"] = prompt
+            print(f"  Added Z-Image trigger: 99bsy99")
+
+    # ── Auto-detect and add pose LoRA (Flux only) ──
+    pose_lora = detect_pose_lora(prompt) if not use_zimage else None
     if pose_lora:
         # Add trigger words to prompt if specified
         if pose_lora["trigger"]:
@@ -509,7 +519,7 @@ def build_workflow(job_input: dict) -> dict:
                 node["inputs"]["strength_model"] = job_input["lora_strength"]
 
         # Set resolution
-        if class_type == "EmptyLatentImage":
+        if class_type in ("EmptyLatentImage", "EmptySD3LatentImage"):
             if "width" in job_input:
                 node["inputs"]["width"] = job_input["width"]
             if "height" in job_input:
@@ -572,6 +582,59 @@ def build_face_restore_workflow(generated_image_fname: str, original_face_fname:
             "inputs": {
                 "images": ["3", 0],
                 "filename_prefix": "nolimits_facerestore",
+            },
+            "_meta": {"title": "Save Result"},
+        },
+    }
+
+
+def build_instantid_workflow(generated_image_fname: str, face_image_fname: str) -> dict:
+    """Build InstantID face swap: apply face from reference onto generated image."""
+    return {
+        "1": {
+            "class_type": "LoadImage",
+            "inputs": {"image": generated_image_fname},
+            "_meta": {"title": "Generated Image"},
+        },
+        "2": {
+            "class_type": "LoadImage",
+            "inputs": {"image": face_image_fname},
+            "_meta": {"title": "Face Reference"},
+        },
+        "3": {
+            "class_type": "InstantIDModelLoader",
+            "inputs": {
+                "instantid_file": "ip-adapter.bin",
+            },
+            "_meta": {"title": "InstantID Model"},
+        },
+        "4": {
+            "class_type": "InstantIDFaceAnalysis",
+            "inputs": {
+                "provider": "CUDA",
+            },
+            "_meta": {"title": "Face Analysis"},
+        },
+        "5": {
+            "class_type": "ApplyInstantID",
+            "inputs": {
+                "instantid": ["3", 0],
+                "insightface": ["4", 0],
+                "image": ["2", 0],
+                "model": ["1", 0],
+                "positive": None,
+                "negative": None,
+                "weight": 0.8,
+                "start_at": 0.0,
+                "end_at": 1.0,
+            },
+            "_meta": {"title": "Apply InstantID"},
+        },
+        "6": {
+            "class_type": "SaveImage",
+            "inputs": {
+                "images": ["5", 0],
+                "filename_prefix": "nolimits_instantid",
             },
             "_meta": {"title": "Save Result"},
         },
@@ -711,6 +774,11 @@ link_model(
     ["/runpod-volume/models/facerestore_models/codeformer-v0.1.0.pth",
      "/workspace/models/facerestore_models/codeformer-v0.1.0.pth"],
     "/comfyui/models/facerestore_models/codeformer-v0.1.0.pth",
+)
+link_model(
+    ["/runpod-volume/models/instantid/ip-adapter.bin",
+     "/workspace/models/instantid/ip-adapter.bin"],
+    "/comfyui/models/instantid/ip-adapter.bin",
 )
 
 check_models()
