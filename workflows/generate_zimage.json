@@ -3,7 +3,7 @@
     "class_type": "UNETLoader",
     "inputs": {
       "unet_name": "zimage_turbo_nsfw.safetensors",
-      "weight_dtype": "bf16"
+      "weight_dtype": "default"
     },
     "_meta": {"title": "Load Z-Image Turbo NSFW"}
   },
