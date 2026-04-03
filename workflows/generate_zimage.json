@@ -10,7 +10,7 @@
   "2": {
     "class_type": "CLIPLoader",
     "inputs": {
-      "clip_name": "zimage_te_001.safetensors",
+      "clip_name": "gemma_2b_zimage.safetensors",
       "type": "lumina2"
     },
     "_meta": {"title": "CLIP Loader (Gemma)"}
