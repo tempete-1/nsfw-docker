@@ -390,7 +390,9 @@ def build_workflow(job_input: dict) -> dict:
         print("  No pose LoRA matched")
 
     # ── Conditionally add kira_lora if prompt mentions "kira" ──
-    use_kira = "kira" in prompt.lower()
+    # TEMPORARILY DISABLED — old kira_lora is for Flux, breaks Z-Image
+    # Will re-enable when kira_lora_zimage is trained and uploaded
+    use_kira = False  # was: "kira" in prompt.lower()
     if use_kira:
         kira_lora_path = os.path.join(LORA_BASE_PATH, "kira_lora.safetensors")
         if os.path.exists(kira_lora_path):
