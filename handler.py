@@ -390,33 +390,56 @@ def build_workflow(job_input: dict) -> dict:
         print("  No pose LoRA matched")
 
     # ── Conditionally add kira_lora if prompt mentions "kira" ──
-    # TEMPORARILY DISABLED — old kira_lora is for Flux, breaks Z-Image
-    # Will re-enable when kira_lora_zimage is trained and uploaded
-    use_kira = False  # was: "kira" in prompt.lower()
+    use_kira = "kira" in prompt.lower()
     if use_kira:
-        kira_lora_path = os.path.join(LORA_BASE_PATH, "kira_lora.safetensors")
-        if os.path.exists(kira_lora_path):
-            # Chain after whatever is currently feeding KSampler
-            sampler_id = None
-            for nid, n in workflow.items():
-                if n.get("class_type") == "KSampler":
-                    sampler_id = nid
-            if sampler_id:
-                current_model = workflow[sampler_id]["inputs"]["model"]
-                kira_id = "99"
-                workflow[kira_id] = {
-                    "class_type": "LoraLoaderModelOnly",
-                    "inputs": {
-                        "model": current_model,
-                        "lora_name": "kira_lora.safetensors",
-                        "strength_model": job_input.get("lora_strength", 0.70),
-                    },
-                    "_meta": {"title": "Character LoRA (Kira)"},
-                }
-                workflow[sampler_id]["inputs"]["model"] = [kira_id, 0]
-                print(f"  Added kira_lora (node {kira_id})")
+        # Z-Image uses ZiT-Lora-loader, Flux uses standard LoraLoaderModelOnly
+        if use_zimage:
+            kira_lora_path = os.path.join(LORA_BASE_PATH, "kira_lora_zimage.safetensors")
+            if os.path.exists(kira_lora_path):
+                sampler_id = None
+                for nid, n in workflow.items():
+                    if n.get("class_type") == "KSampler":
+                        sampler_id = nid
+                if sampler_id:
+                    current_model = workflow[sampler_id]["inputs"]["model"]
+                    kira_id = "99"
+                    workflow[kira_id] = {
+                        "class_type": "ZImageTurboLoraLoader",
+                        "inputs": {
+                            "model": current_model,
+                            "lora_name": "kira_lora_zimage.safetensors",
+                            "strength_model": job_input.get("lora_strength", 0.80),
+                            "auto_convert_qkv": True,
+                        },
+                        "_meta": {"title": "Character LoRA Kira (Z-Image)"},
+                    }
+                    workflow[sampler_id]["inputs"]["model"] = [kira_id, 0]
+                    print(f"  Added kira_lora_zimage via ZiT-Lora-loader (node {kira_id})")
+            else:
+                print(f"  WARNING: kira_lora_zimage not found at {kira_lora_path}")
         else:
-            print(f"  WARNING: kira_lora not found at {kira_lora_path}")
+            kira_lora_path = os.path.join(LORA_BASE_PATH, "kira_lora.safetensors")
+            if os.path.exists(kira_lora_path):
+                sampler_id = None
+                for nid, n in workflow.items():
+                    if n.get("class_type") == "KSampler":
+                        sampler_id = nid
+                if sampler_id:
+                    current_model = workflow[sampler_id]["inputs"]["model"]
+                    kira_id = "99"
+                    workflow[kira_id] = {
+                        "class_type": "LoraLoaderModelOnly",
+                        "inputs": {
+                            "model": current_model,
+                            "lora_name": "kira_lora.safetensors",
+                            "strength_model": job_input.get("lora_strength", 0.70),
+                        },
+                        "_meta": {"title": "Character LoRA (Kira)"},
+                    }
+                    workflow[sampler_id]["inputs"]["model"] = [kira_id, 0]
+                    print(f"  Added kira_lora for Flux (node {kira_id})")
+            else:
+                print(f"  WARNING: kira_lora not found at {kira_lora_path}")
     else:
         print("  No kira in prompt, skipping kira_lora")
 
