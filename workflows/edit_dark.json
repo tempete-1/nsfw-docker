@@ -12,7 +12,7 @@
     "inputs": {
       "model": ["1", 0],
       "lora_name": "flux_super_realism.safetensors",
-      "strength_model": 0.40
+      "strength_model": 0.0
     },
     "_meta": {"title": "NSFW LoRA"}
   },

@@ -418,76 +418,6 @@ def build_workflow(job_input: dict) -> dict:
     else:
         print("  No kira in prompt, skipping kira_lora")
 
-    # ── InstantID face swap (if face_photo provided) ──
-    face_photo = job_input.get("face_photo")
-    if face_photo and face_photo.strip() and not use_zimage:
-        face_fname = save_base64_image(face_photo, "face")
-        print(f"  Face photo saved: {face_fname}")
-
-        # Find KSampler and its model/positive/negative refs
-        sampler_id = None
-        for nid, n in workflow.items():
-            if n.get("class_type") == "KSampler":
-                sampler_id = nid
-
-        if sampler_id:
-            current_model = workflow[sampler_id]["inputs"]["model"]
-            current_positive = workflow[sampler_id]["inputs"]["positive"]
-            current_negative = workflow[sampler_id]["inputs"]["negative"]
-
-            # Add InstantID nodes
-            workflow["70"] = {
-                "class_type": "InstantIDModelLoader",
-                "inputs": {
-                    "instantid_file": "ip-adapter.bin",
-                },
-                "_meta": {"title": "InstantID Model"},
-            }
-            workflow["71"] = {
-                "class_type": "InstantIDFaceAnalysis",
-                "inputs": {
-                    "provider": "CUDA",
-                },
-                "_meta": {"title": "InstantID Face Analysis"},
-            }
-            workflow["72"] = {
-                "class_type": "LoadImage",
-                "inputs": {
-                    "image": face_fname,
-                },
-                "_meta": {"title": "Face Reference"},
-            }
-            workflow["73"] = {
-                "class_type": "ControlNetLoader",
-                "inputs": {
-                    "control_net_name": "instantid_controlnet.safetensors",
-                },
-                "_meta": {"title": "InstantID ControlNet"},
-            }
-            workflow["74"] = {
-                "class_type": "ApplyInstantID",
-                "inputs": {
-                    "instantid": ["70", 0],
-                    "insightface": ["71", 0],
-                    "control_net": ["73", 0],
-                    "image": ["72", 0],
-                    "model": current_model,
-                    "positive": current_positive,
-                    "negative": current_negative,
-                    "weight": 0.8,
-                    "start_at": 0.0,
-                    "end_at": 1.0,
-                },
-                "_meta": {"title": "Apply InstantID"},
-            }
-            # Point KSampler to InstantID outputs
-            workflow[sampler_id]["inputs"]["model"] = ["74", 0]
-            workflow[sampler_id]["inputs"]["positive"] = ["74", 1]
-            workflow[sampler_id]["inputs"]["negative"] = ["74", 2]
-            print(f"  Added InstantID face swap nodes (70-74)")
-    elif face_photo and use_zimage:
-        print("  WARNING: InstantID not compatible with Z-Image, skipping face swap")
-
     for node_id, node in workflow.items():
         class_type = node.get("class_type", "")
         meta_title = str(node.get("_meta", {}).get("title", "")).lower()
@@ -593,59 +523,6 @@ def build_face_restore_workflow(generated_image_fname: str, original_face_fname:
     }
 
 
-def build_instantid_workflow(generated_image_fname: str, face_image_fname: str) -> dict:
-    """Build InstantID face swap: apply face from reference onto generated image."""
-    return {
-        "1": {
-            "class_type": "LoadImage",
-            "inputs": {"image": generated_image_fname},
-            "_meta": {"title": "Generated Image"},
-        },
-        "2": {
-            "class_type": "LoadImage",
-            "inputs": {"image": face_image_fname},
-            "_meta": {"title": "Face Reference"},
-        },
-        "3": {
-            "class_type": "InstantIDModelLoader",
-            "inputs": {
-                "instantid_file": "ip-adapter.bin",
-            },
-            "_meta": {"title": "InstantID Model"},
-        },
-        "4": {
-            "class_type": "InstantIDFaceAnalysis",
-            "inputs": {
-                "provider": "CUDA",
-            },
-            "_meta": {"title": "Face Analysis"},
-        },
-        "5": {
-            "class_type": "ApplyInstantID",
-            "inputs": {
-                "instantid": ["3", 0],
-                "insightface": ["4", 0],
-                "image": ["2", 0],
-                "model": ["1", 0],
-                "positive": None,
-                "negative": None,
-                "weight": 0.8,
-                "start_at": 0.0,
-                "end_at": 1.0,
-            },
-            "_meta": {"title": "Apply InstantID"},
-        },
-        "6": {
-            "class_type": "SaveImage",
-            "inputs": {
-                "images": ["5", 0],
-                "filename_prefix": "nolimits_instantid",
-            },
-            "_meta": {"title": "Save Result"},
-        },
-    }
-
-
 def handler(job):
     """RunPod serverless handler."""
     try:
@@ -656,15 +533,23 @@ def handler(job):
 
         mode = job_input.get("mode", "generate")
         action = job_input.get("action", "generate")
+
+        # Face restore for edit modes (keep original face after edit)
         need_face_restore = (
             mode in ("edit_dark", "edit_easy") or action in ("edit", "dark_beast")
         ) and job_input.get("photo")
 
-        # Save original photo for face restore before generation
         original_face_fname = None
         if need_face_restore:
             original_face_fname = save_base64_image(job_input["photo"], "origface")
             print(f"  Saved original face for restore: {original_face_fname}")
+
+        # Face swap for any mode (user uploads face_photo → swap onto generated image)
+        face_photo = job_input.get("face_photo")
+        face_swap_fname = None
+        if face_photo and face_photo.strip():
+            face_swap_fname = save_base64_image(face_photo, "faceswap")
+            print(f"  Saved face for ReActor swap: {face_swap_fname}")
 
         count = int(job_input.get("count", 1))
         count = min(count, 4)  # max 4
@@ -718,6 +603,29 @@ def handler(job):
                                         break
                             except Exception as e:
                                 print(f"  Face restore failed, using original: {e}")
+
+                        # ReActor face swap (if face_photo provided)
+                        if face_swap_fname:
+                            try:
+                                print(f"  Running ReActor face swap...")
+                                gen_fname = save_base64_image(b64, "forswap")
+                                swap_workflow = build_face_restore_workflow(gen_fname, face_swap_fname)
+                                swap_prompt_id = queue_prompt(swap_workflow)
+                                swap_outputs = poll_completion(swap_prompt_id)
+                                for sw_nid, sw_nout in swap_outputs.items():
+                                    if "images" in sw_nout:
+                                        for sw_img in sw_nout["images"]:
+                                            b64 = get_image_base64(
+                                                sw_img["filename"],
+                                                sw_img.get("subfolder", ""),
+                                                sw_img["type"],
+                                            )
+                                            print(f"  ReActor face swap done")
+                                            break
+                                        break
+                            except Exception as e:
+                                print(f"  ReActor face swap failed, using original: {e}")
+
                         images.append(b64)
                 if "gifs" in node_output:
                     for vid in node_output["gifs"]:
@@ -780,28 +688,6 @@ link_model(
      "/workspace/models/facerestore_models/codeformer-v0.1.0.pth"],
     "/comfyui/models/facerestore_models/codeformer-v0.1.0.pth",
 )
-link_model(
-    ["/runpod-volume/models/instantid/ip-adapter.bin",
-     "/workspace/models/instantid/ip-adapter.bin"],
-    "/comfyui/models/instantid/ip-adapter.bin",
-)
-link_model(
-    ["/runpod-volume/models/controlnet/instantid_controlnet.safetensors",
-     "/workspace/models/controlnet/instantid_controlnet.safetensors"],
-    "/comfyui/models/controlnet/instantid_controlnet.safetensors",
-)
-# AntelopeV2 face analysis models for InstantID
-antelope_src = "/runpod-volume/models/insightface/models/antelopev2"
-antelope_alt = "/workspace/models/insightface/models/antelopev2"
-antelope_dst = "/comfyui/models/insightface/models/antelopev2"
-if not os.path.exists(antelope_dst):
-    for src in [antelope_src, antelope_alt]:
-        if os.path.exists(src):
-            os.makedirs(os.path.dirname(antelope_dst), exist_ok=True)
-            os.symlink(src, antelope_dst)
-            print(f"  Linked: {src} -> {antelope_dst}")
-            break
-
 check_models()
 if not start_comfyui():
     print("FATAL: ComfyUI did not start")
