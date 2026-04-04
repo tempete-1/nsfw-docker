@@ -14,9 +14,10 @@ RUN apt-get update && apt-get install -y \
 
 RUN pip3 install --no-cache-dir --upgrade pip
 
-# Install ComfyUI
+# Install ComfyUI (latest — must include PR #12717 fix for Z-Image LoRA)
 RUN git clone https://github.com/comfyanonymous/ComfyUI.git /comfyui
 WORKDIR /comfyui
+RUN git pull origin master
 RUN pip3 install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 RUN pip3 install --no-cache-dir -r requirements.txt
 

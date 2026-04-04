@@ -51,7 +51,7 @@
     "class_type": "ModelSamplingAuraFlow",
     "inputs": {
       "model": ["1", 0],
-      "shift": 6.0
+      "shift": 7.0
     },
     "_meta": {"title": "Model Sampling"}
   },
@@ -64,17 +64,42 @@
       "latent_image": ["6", 0],
       "seed": 42,
       "steps": 8,
-      "cfg": 3.5,
+      "cfg": 7.0,
       "sampler_name": "euler",
       "scheduler": "beta",
       "denoise": 1.0
     },
     "_meta": {"title": "KSampler"}
   },
+  "20": {
+    "class_type": "LatentUpscaleBy",
+    "inputs": {
+      "samples": ["8", 0],
+      "upscale_method": "bislerp",
+      "scale_by": 1.5
+    },
+    "_meta": {"title": "Hires Upscale 1.5x"}
+  },
+  "21": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": ["7", 0],
+      "positive": ["4", 0],
+      "negative": ["5", 0],
+      "latent_image": ["20", 0],
+      "seed": 42,
+      "steps": 6,
+      "cfg": 7.0,
+      "sampler_name": "euler",
+      "scheduler": "beta",
+      "denoise": 0.50
+    },
+    "_meta": {"title": "KSampler Hires"}
+  },
   "9": {
     "class_type": "VAEDecode",
     "inputs": {
-      "samples": ["8", 0],
+      "samples": ["21", 0],
       "vae": ["3", 0]
     },
     "_meta": {"title": "VAE Decode"}

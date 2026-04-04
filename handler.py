@@ -407,8 +407,8 @@ def build_workflow(job_input: dict) -> dict:
                         "class_type": "ZImageTurboLoraLoader",
                         "inputs": {
                             "model": current_model,
-                            "lora_name": "kira_lora_zimage_3000.safetensors",
-                            "strength_model": job_input.get("lora_strength", 1.20),
+                            "lora_name": "kira_lora_zimage.safetensors",
+                            "strength_model": job_input.get("lora_strength", 1.0),
                             "auto_convert_qkv": True,
                         },
                         "_meta": {"title": "Character LoRA Kira (Z-Image)"},
