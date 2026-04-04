@@ -522,18 +522,19 @@ def build_face_restore_workflow(generated_image_fname: str, original_face_fname:
         "3": {
             "class_type": "ReActorFaceSwap",
             "inputs": {
+                "enabled": True,
                 "input_image": ["1", 0],
                 "source_image": ["2", 0],
                 "swap_model": "inswapper_128.onnx",
                 "facedetection": "retinaface_resnet50",
                 "face_restore_model": "codeformer-v0.1.0.pth",
                 "face_restore_visibility": 1.0,
-                "codeformer_weight": 0.7,
+                "codeformer_weight": 0.5,
                 "detect_gender_input": "no",
                 "detect_gender_source": "no",
                 "input_faces_index": "0",
                 "source_faces_index": "0",
-                "console_log_level": 1,
+                "console_log_level": 2,
             },
             "_meta": {"title": "ReActor Face Swap"},
         },
@@ -649,7 +650,9 @@ def handler(job):
                                             break
                                         break
                             except Exception as e:
+                                import traceback
                                 print(f"  ReActor face swap failed, using original: {e}")
+                                print(f"  ReActor traceback: {traceback.format_exc()}")
 
                         images.append(b64)
                 if "gifs" in node_output:
