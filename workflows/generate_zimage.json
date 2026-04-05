@@ -10,15 +10,15 @@
   "2": {
     "class_type": "CLIPLoader",
     "inputs": {
-      "clip_name": "gemma_2b_zimage.safetensors",
+      "clip_name": "qwen_3_4b.safetensors",
       "type": "lumina2"
     },
-    "_meta": {"title": "CLIP Loader (Gemma)"}
+    "_meta": {"title": "CLIP Loader (Qwen)"}
   },
   "3": {
     "class_type": "VAELoader",
     "inputs": {
-      "vae_name": "zimage_vae_dc.safetensors"
+      "vae_name": "ae.safetensors"
     },
     "_meta": {"title": "VAE Loader"}
   },
@@ -41,8 +41,8 @@
   "6": {
     "class_type": "EmptySD3LatentImage",
     "inputs": {
-      "width": 768,
-      "height": 1024,
+      "width": 896,
+      "height": 1152,
       "batch_size": 1
     },
     "_meta": {"title": "Empty Latent"}
@@ -63,10 +63,10 @@
       "negative": ["5", 0],
       "latent_image": ["6", 0],
       "seed": 42,
-      "steps": 8,
-      "cfg": 7.0,
-      "sampler_name": "euler",
-      "scheduler": "beta",
+      "steps": 5,
+      "cfg": 1.0,
+      "sampler_name": "heunpp2",
+      "scheduler": "linear_quadratic",
       "denoise": 1.0
     },
     "_meta": {"title": "KSampler"}
@@ -75,10 +75,10 @@
     "class_type": "LatentUpscaleBy",
     "inputs": {
       "samples": ["8", 0],
-      "upscale_method": "bislerp",
-      "scale_by": 1.5
+      "upscale_method": "nearest-exact",
+      "scale_by": 1.25
     },
-    "_meta": {"title": "Hires Upscale 1.5x"}
+    "_meta": {"title": "Hires Upscale 1.25x"}
   },
   "21": {
     "class_type": "KSampler",
@@ -88,11 +88,11 @@
       "negative": ["5", 0],
       "latent_image": ["20", 0],
       "seed": 42,
-      "steps": 6,
-      "cfg": 7.0,
-      "sampler_name": "euler",
-      "scheduler": "beta",
-      "denoise": 0.50
+      "steps": 5,
+      "cfg": 1.0,
+      "sampler_name": "euler_ancestral",
+      "scheduler": "simple",
+      "denoise": 0.18
     },
     "_meta": {"title": "KSampler Hires"}
   },
