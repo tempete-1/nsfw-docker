@@ -392,7 +392,7 @@ def build_workflow(job_input: dict) -> dict:
     # ── Conditionally add kira_lora if prompt mentions "kira" ──
     use_kira = "kira" in prompt.lower()
     if use_kira:
-        # Z-Image uses ZiT-Lora-loader, Flux uses standard LoraLoaderModelOnly
+        # Z-Image: use standard LoraLoaderModelOnly (ComfyUI PR #12717 fixed fused QKV support)
         if use_zimage:
             kira_lora_path = os.path.join(LORA_BASE_PATH, "kira_lora_zimage.safetensors")
             if os.path.exists(kira_lora_path):
@@ -404,17 +404,16 @@ def build_workflow(job_input: dict) -> dict:
                     current_model = workflow[sampler_id]["inputs"]["model"]
                     kira_id = "99"
                     workflow[kira_id] = {
-                        "class_type": "ZImageTurboLoraLoader",
+                        "class_type": "LoraLoaderModelOnly",
                         "inputs": {
                             "model": current_model,
                             "lora_name": "kira_lora_zimage.safetensors",
                             "strength_model": job_input.get("lora_strength", 1.0),
-                            "auto_convert_qkv": True,
                         },
                         "_meta": {"title": "Character LoRA Kira (Z-Image)"},
                     }
                     workflow[sampler_id]["inputs"]["model"] = [kira_id, 0]
-                    print(f"  Added kira_lora_zimage via ZiT-Lora-loader (node {kira_id})")
+                    print(f"  Added kira_lora_zimage via LoraLoaderModelOnly (node {kira_id})")
             else:
                 print(f"  WARNING: kira_lora_zimage not found at {kira_lora_path}")
         else:
