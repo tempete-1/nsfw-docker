@@ -53,7 +53,8 @@ RUN cd custom_nodes/ComfyUI-nunchaku && pip3 install --no-cache-dir -r requireme
 RUN pip3 install --no-cache-dir nunchaku 2>/dev/null || true
 RUN pip3 install --no-cache-dir ffmpeg-python
 RUN cd custom_nodes/ComfyUI-Detail-Daemon && pip3 install --no-cache-dir -r requirements.txt 2>/dev/null || true
-RUN cd custom_nodes/ComfyUI-SeedVR2_VideoUpscaler && pip3 install --no-cache-dir -r requirements.txt 2>/dev/null || true
+RUN cd custom_nodes/ComfyUI-SeedVR2_VideoUpscaler && pip3 install --no-cache-dir -r requirements.txt
+RUN pip3 install --no-cache-dir gguf_connector 2>/dev/null || true
 RUN cd custom_nodes/ComfyUI-GGUF && pip3 install --no-cache-dir -r requirements.txt 2>/dev/null || true
 
 # Verify PuLID nodes exist
