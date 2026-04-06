@@ -176,71 +176,11 @@
     },
     "_meta": {"title": "VAE Decode Hires"}
   },
-  "51": {
-    "class_type": "ImageScaleBy",
-    "inputs": {
-      "image": ["50", 0],
-      "upscale_method": "lanczos",
-      "scale_by": 1.0
-    },
-    "_meta": {"title": "Image Scale (passthrough for VR2)"}
-  },
-  "52": {
-    "class_type": "SeedVR2LoadVAEModel",
-    "inputs": {
-      "model": "ema_vae_fp16.safetensors",
-      "device": "cuda:0",
-      "encode_tiled": true,
-      "encode_tile_size": 1024,
-      "encode_tile_overlap": 128,
-      "decode_tiled": true,
-      "decode_tile_size": 1024,
-      "decode_tile_overlap": 128,
-      "tile_debug": "false",
-      "offload_device": "cpu",
-      "cache_model": false
-    },
-    "_meta": {"title": "SeedVR2 Load VAE"}
-  },
-  "53": {
-    "class_type": "SeedVR2LoadDiTModel",
-    "inputs": {
-      "model": "seedvr2_ema_3b-Q4_K_M.gguf",
-      "device": "cuda:0",
-      "max_seq_len": 32,
-      "cache_model": true,
-      "offload_device": "cpu",
-      "attention": "flash_attn",
-      "attention_api": "flash_attn_3"
-    },
-    "_meta": {"title": "SeedVR2 Load DiT"}
-  },
-  "54": {
-    "class_type": "SeedVR2VideoUpscaler",
-    "inputs": {
-      "image": ["51", 0],
-      "dit": ["53", 0],
-      "vae": ["52", 0],
-      "seed": 42,
-      "resolution": 896,
-      "max_resolution": 4096,
-      "batch_size": 1,
-      "uniform_batch_size": false,
-      "color_correction": "lab",
-      "temporal_overlap": 0,
-      "prepend_frames": 0,
-      "input_noise_scale": 0.1,
-      "latent_noise_scale": 0,
-      "offload_device": "cpu",
-      "enable_debug": false
-    },
-    "_meta": {"title": "SeedVR2 Upscaler"}
-  },
 
   "10": {
     "class_type": "SaveImage",
     "inputs": {
-      "images": ["54", 0],
+      "images": ["50", 0],
       "filename_prefix": "nolimits_zimage"
     },
     "_meta": {"title": "Save Image"}
