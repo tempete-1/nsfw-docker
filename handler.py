@@ -389,38 +389,6 @@ def build_workflow(job_input: dict) -> dict:
     else:
         print("  No pose LoRA matched")
 
-    # ── Always add DetailedEye LoRA for Z-Image (improves eye/skin detail) ──
-    if use_zimage:
-        deye_path = os.path.join(LORA_BASE_PATH, "qinglong_detailedeye_z-imageV2comfy.safetensors")
-        if os.path.exists(deye_path):
-            # Find ModelSamplingAuraFlow and insert LoRA after it
-            model_src = None
-            for nid, n in workflow.items():
-                if n.get("class_type") == "ModelSamplingAuraFlow":
-                    model_src = nid
-                    break
-            if model_src:
-                deye_id = "98"
-                workflow[deye_id] = {
-                    "class_type": "LoraLoaderModelOnly",
-                    "inputs": {
-                        "model": [model_src, 0],
-                        "lora_name": "qinglong_detailedeye_z-imageV2comfy.safetensors",
-                        "strength_model": 0.5,
-                    },
-                    "_meta": {"title": "DetailedEye LoRA"},
-                }
-                # Redirect all model refs from ModelSampling to DetailedEye LoRA
-                for nid, n in workflow.items():
-                    if nid == deye_id:
-                        continue
-                    for key, val in n.get("inputs", {}).items():
-                        if isinstance(val, list) and len(val) == 2 and val[0] == model_src and val[1] == 0:
-                            n["inputs"][key] = [deye_id, 0]
-                print(f"  Added DetailedEye LoRA (node {deye_id})")
-        else:
-            print(f"  DetailedEye LoRA not found, skipping")
-
     # ── Conditionally add kira_lora if prompt mentions "kira" ──
     use_kira = "kira" in prompt.lower()
     if use_kira:
@@ -428,16 +396,12 @@ def build_workflow(job_input: dict) -> dict:
         lora_strength = job_input.get("lora_strength", 1.0) if use_zimage else job_input.get("lora_strength", 0.70)
         kira_lora_path = os.path.join(LORA_BASE_PATH, lora_name)
         if os.path.exists(kira_lora_path):
-            # Find the last LoRA in chain, or ModelSamplingAuraFlow, or UNETLoader
+            # Find ModelSamplingAuraFlow or UNETLoader
             model_source_id = None
-            # First check if DetailedEye LoRA exists (node 98)
-            if "98" in workflow:
-                model_source_id = "98"
-            else:
-                for nid, n in workflow.items():
-                    if n.get("class_type") == "ModelSamplingAuraFlow":
-                        model_source_id = nid
-                        break
+            for nid, n in workflow.items():
+                if n.get("class_type") == "ModelSamplingAuraFlow":
+                    model_source_id = nid
+                    break
             if not model_source_id:
                 for nid, n in workflow.items():
                     if n.get("class_type") in ("UNETLoader", "UnetLoaderGGUF"):
