@@ -389,6 +389,38 @@ def build_workflow(job_input: dict) -> dict:
     else:
         print("  No pose LoRA matched")
 
+    # ── Always add DetailedEye LoRA for Z-Image (improves eye/skin detail) ──
+    if use_zimage:
+        deye_path = os.path.join(LORA_BASE_PATH, "qinglong_detailedeye_z-imageV2comfy.safetensors")
+        if os.path.exists(deye_path):
+            # Find ModelSamplingAuraFlow and insert LoRA after it
+            model_src = None
+            for nid, n in workflow.items():
+                if n.get("class_type") == "ModelSamplingAuraFlow":
+                    model_src = nid
+                    break
+            if model_src:
+                deye_id = "98"
+                workflow[deye_id] = {
+                    "class_type": "LoraLoaderModelOnly",
+                    "inputs": {
+                        "model": [model_src, 0],
+                        "lora_name": "qinglong_detailedeye_z-imageV2comfy.safetensors",
+                        "strength_model": 0.5,
+                    },
+                    "_meta": {"title": "DetailedEye LoRA"},
+                }
+                # Redirect all model refs from ModelSampling to DetailedEye LoRA
+                for nid, n in workflow.items():
+                    if nid == deye_id:
+                        continue
+                    for key, val in n.get("inputs", {}).items():
+                        if isinstance(val, list) and len(val) == 2 and val[0] == model_src and val[1] == 0:
+                            n["inputs"][key] = [deye_id, 0]
+                print(f"  Added DetailedEye LoRA (node {deye_id})")
+        else:
+            print(f"  DetailedEye LoRA not found, skipping")
+
     # ── Conditionally add kira_lora if prompt mentions "kira" ──
     use_kira = "kira" in prompt.lower()
     if use_kira:
@@ -396,14 +428,17 @@ def build_workflow(job_input: dict) -> dict:
         lora_strength = job_input.get("lora_strength", 1.0) if use_zimage else job_input.get("lora_strength", 0.70)
         kira_lora_path = os.path.join(LORA_BASE_PATH, lora_name)
         if os.path.exists(kira_lora_path):
-            # Find ModelSamplingAuraFlow (Z-Image) or first model source
+            # Find the last LoRA in chain, or ModelSamplingAuraFlow, or UNETLoader
             model_source_id = None
-            for nid, n in workflow.items():
-                if n.get("class_type") == "ModelSamplingAuraFlow":
-                    model_source_id = nid
-                    break
+            # First check if DetailedEye LoRA exists (node 98)
+            if "98" in workflow:
+                model_source_id = "98"
+            else:
+                for nid, n in workflow.items():
+                    if n.get("class_type") == "ModelSamplingAuraFlow":
+                        model_source_id = nid
+                        break
             if not model_source_id:
-                # Fallback: find UNETLoader
                 for nid, n in workflow.items():
                     if n.get("class_type") in ("UNETLoader", "UnetLoaderGGUF"):
                         model_source_id = nid
@@ -712,6 +747,17 @@ def link_model(src_paths, dst_path):
             print(f"  Linked: {src} -> {dst_path}")
             return
     print(f"  WARNING: model not found in any of {src_paths}")
+
+print("=== Linking SeedVR2 models ===")
+seedvr2_src = "/workspace/models/seedvr2"
+seedvr2_dst = "/comfyui/models/SEEDVR2"
+if os.path.exists(seedvr2_src) and not os.path.exists(seedvr2_dst):
+    os.symlink(seedvr2_src, seedvr2_dst)
+    print(f"  Linked: {seedvr2_src} -> {seedvr2_dst}")
+elif os.path.exists(seedvr2_dst):
+    print(f"  Already exists: {seedvr2_dst}")
+else:
+    print(f"  WARNING: SeedVR2 models not found at {seedvr2_src}")
 
 print("=== Linking ReActor models ===")
 link_model(
