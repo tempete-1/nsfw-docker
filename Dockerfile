@@ -34,7 +34,7 @@ RUN cd custom_nodes && \
     git clone https://github.com/capitan01R/Comfyui-ZiT-Lora-loader.git && \
     git clone https://github.com/cubiq/ComfyUI_InstantID.git && \
     git clone https://github.com/Jonseed/ComfyUI-Detail-Daemon.git && \
-    git clone https://github.com/pftg/ComfyUI-SeedVR2_VideoUpscaler.git && \
+    git clone https://github.com/numz/ComfyUI-SeedVR2_VideoUpscaler.git && \
     git clone https://github.com/rgthree/rgthree-comfy.git && \
     git clone https://github.com/city96/ComfyUI-GGUF.git
 
