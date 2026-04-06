@@ -392,53 +392,44 @@ def build_workflow(job_input: dict) -> dict:
     # ── Conditionally add kira_lora if prompt mentions "kira" ──
     use_kira = "kira" in prompt.lower()
     if use_kira:
-        # Z-Image: use standard LoraLoaderModelOnly (ComfyUI PR #12717 fixed fused QKV support)
-        if use_zimage:
-            kira_lora_path = os.path.join(LORA_BASE_PATH, "kira_lora_zimage.safetensors")
-            if os.path.exists(kira_lora_path):
-                sampler_id = None
+        lora_name = "kira_lora_zimage.safetensors" if use_zimage else "kira_lora.safetensors"
+        lora_strength = job_input.get("lora_strength", 1.0) if use_zimage else job_input.get("lora_strength", 0.70)
+        kira_lora_path = os.path.join(LORA_BASE_PATH, lora_name)
+        if os.path.exists(kira_lora_path):
+            # Find ModelSamplingAuraFlow (Z-Image) or first model source
+            model_source_id = None
+            for nid, n in workflow.items():
+                if n.get("class_type") == "ModelSamplingAuraFlow":
+                    model_source_id = nid
+                    break
+            if not model_source_id:
+                # Fallback: find UNETLoader
                 for nid, n in workflow.items():
-                    if n.get("class_type") == "KSampler":
-                        sampler_id = nid
-                if sampler_id:
-                    current_model = workflow[sampler_id]["inputs"]["model"]
-                    kira_id = "99"
-                    workflow[kira_id] = {
-                        "class_type": "LoraLoaderModelOnly",
-                        "inputs": {
-                            "model": current_model,
-                            "lora_name": "kira_lora_zimage.safetensors",
-                            "strength_model": job_input.get("lora_strength", 1.0),
-                        },
-                        "_meta": {"title": "Character LoRA Kira (Z-Image)"},
-                    }
-                    workflow[sampler_id]["inputs"]["model"] = [kira_id, 0]
-                    print(f"  Added kira_lora_zimage via LoraLoaderModelOnly (node {kira_id})")
-            else:
-                print(f"  WARNING: kira_lora_zimage not found at {kira_lora_path}")
+                    if n.get("class_type") in ("UNETLoader", "UnetLoaderGGUF"):
+                        model_source_id = nid
+                        break
+
+            if model_source_id:
+                kira_id = "99"
+                workflow[kira_id] = {
+                    "class_type": "LoraLoaderModelOnly",
+                    "inputs": {
+                        "model": [model_source_id, 0],
+                        "lora_name": lora_name,
+                        "strength_model": lora_strength,
+                    },
+                    "_meta": {"title": "Character LoRA Kira"},
+                }
+                # Redirect all nodes that reference the model source to use LoRA output instead
+                for nid, n in workflow.items():
+                    if nid == kira_id:
+                        continue
+                    for key, val in n.get("inputs", {}).items():
+                        if isinstance(val, list) and len(val) == 2 and val[0] == model_source_id and val[1] == 0:
+                            n["inputs"][key] = [kira_id, 0]
+                print(f"  Added {lora_name} via LoraLoaderModelOnly (node {kira_id}), redirected all model refs")
         else:
-            kira_lora_path = os.path.join(LORA_BASE_PATH, "kira_lora.safetensors")
-            if os.path.exists(kira_lora_path):
-                sampler_id = None
-                for nid, n in workflow.items():
-                    if n.get("class_type") == "KSampler":
-                        sampler_id = nid
-                if sampler_id:
-                    current_model = workflow[sampler_id]["inputs"]["model"]
-                    kira_id = "99"
-                    workflow[kira_id] = {
-                        "class_type": "LoraLoaderModelOnly",
-                        "inputs": {
-                            "model": current_model,
-                            "lora_name": "kira_lora.safetensors",
-                            "strength_model": job_input.get("lora_strength", 0.70),
-                        },
-                        "_meta": {"title": "Character LoRA (Kira)"},
-                    }
-                    workflow[sampler_id]["inputs"]["model"] = [kira_id, 0]
-                    print(f"  Added kira_lora for Flux (node {kira_id})")
-            else:
-                print(f"  WARNING: kira_lora not found at {kira_lora_path}")
+            print(f"  WARNING: {lora_name} not found at {kira_lora_path}")
     else:
         print("  No kira in prompt, skipping kira_lora")
 
@@ -471,6 +462,24 @@ def build_workflow(job_input: dict) -> dict:
                 node["inputs"]["cfg"] = job_input["cfg"]
             if "denoise" in job_input:
                 node["inputs"]["denoise"] = job_input["denoise"]
+
+        # Set seed on RandomNoise (for SamplerCustomAdvanced)
+        if class_type == "RandomNoise":
+            seed = job_input.get("seed", -1)
+            if seed == -1:
+                import random
+                seed = random.randint(0, 2**32 - 1)
+            node["inputs"]["noise_seed"] = seed
+            print(f"  Set noise_seed={seed} on node {node_id}")
+
+        # Set seed on SeedVR2VideoUpscaler
+        if class_type == "SeedVR2VideoUpscaler":
+            seed = job_input.get("seed", -1)
+            if seed == -1:
+                import random
+                seed = random.randint(0, 2**32 - 1)
+            node["inputs"]["seed"] = seed
+            print(f"  Set vr2_seed={seed} on node {node_id}")
 
         # Set LoRA strength
         if class_type in ("LoraLoaderModelOnly", "LoraLoader"):

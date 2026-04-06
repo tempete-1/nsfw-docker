@@ -55,26 +55,97 @@
     },
     "_meta": {"title": "Model Sampling"}
   },
-  "8": {
-    "class_type": "KSampler",
+
+  "30": {
+    "class_type": "KSamplerSelect",
+    "inputs": {
+      "sampler_name": "dpmpp_2m_sde"
+    },
+    "_meta": {"title": "KSampler Select (for DetailDaemon)"}
+  },
+  "31": {
+    "class_type": "DetailDaemonSamplerNode",
+    "inputs": {
+      "sampler": ["30", 0],
+      "detail_amount": 0.18,
+      "start": 0.0,
+      "end": 1.0,
+      "bias": 0.5,
+      "exponent": 3.0,
+      "start_offset": 0.0,
+      "end_offset": 0.0,
+      "fade": 0.0,
+      "smooth": true,
+      "cfg_scale_override": 0
+    },
+    "_meta": {"title": "Detail Daemon"}
+  },
+  "32": {
+    "class_type": "RandomNoise",
+    "inputs": {
+      "noise_seed": 42
+    },
+    "_meta": {"title": "Random Noise"}
+  },
+  "33": {
+    "class_type": "BasicScheduler",
+    "inputs": {
+      "model": ["7", 0],
+      "scheduler": "simple",
+      "steps": 5,
+      "denoise": 0.45
+    },
+    "_meta": {"title": "Basic Scheduler"}
+  },
+  "34": {
+    "class_type": "CFGGuider",
     "inputs": {
       "model": ["7", 0],
       "positive": ["4", 0],
-      "negative": ["5", 0],
-      "latent_image": ["6", 0],
-      "seed": 42,
-      "steps": 5,
-      "cfg": 1.0,
-      "sampler_name": "heunpp2",
-      "scheduler": "linear_quadratic",
-      "denoise": 1.0
+      "negative": ["36", 0],
+      "cfg": 1.0
     },
-    "_meta": {"title": "KSampler"}
+    "_meta": {"title": "CFG Guider"}
+  },
+  "35": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": {
+      "noise": ["32", 0],
+      "guider": ["34", 0],
+      "sampler": ["31", 0],
+      "sigmas": ["33", 0],
+      "latent_image": ["6", 0]
+    },
+    "_meta": {"title": "Sampler Custom Advanced (Pass 1)"}
+  },
+  "36": {
+    "class_type": "ConditioningZeroOut",
+    "inputs": {
+      "conditioning": ["4", 0]
+    },
+    "_meta": {"title": "Negative Zero Out"}
+  },
+
+  "40": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": ["35", 0],
+      "vae": ["3", 0]
+    },
+    "_meta": {"title": "VAE Decode Pass 1"}
+  },
+  "41": {
+    "class_type": "VAEEncode",
+    "inputs": {
+      "pixels": ["40", 0],
+      "vae": ["3", 0]
+    },
+    "_meta": {"title": "VAE Encode for Hires"}
   },
   "20": {
     "class_type": "LatentUpscaleBy",
     "inputs": {
-      "samples": ["8", 0],
+      "samples": ["41", 0],
       "upscale_method": "nearest-exact",
       "scale_by": 1.25
     },
@@ -85,7 +156,7 @@
     "inputs": {
       "model": ["7", 0],
       "positive": ["4", 0],
-      "negative": ["5", 0],
+      "negative": ["36", 0],
       "latent_image": ["20", 0],
       "seed": 42,
       "steps": 5,
@@ -96,18 +167,80 @@
     },
     "_meta": {"title": "KSampler Hires"}
   },
-  "9": {
+
+  "50": {
     "class_type": "VAEDecode",
     "inputs": {
       "samples": ["21", 0],
       "vae": ["3", 0]
     },
-    "_meta": {"title": "VAE Decode"}
+    "_meta": {"title": "VAE Decode Hires"}
   },
+  "51": {
+    "class_type": "ImageScaleBy",
+    "inputs": {
+      "image": ["50", 0],
+      "upscale_method": "lanczos",
+      "scale_by": 1.0
+    },
+    "_meta": {"title": "Image Scale (passthrough for VR2)"}
+  },
+  "52": {
+    "class_type": "SeedVR2LoadVAEModel",
+    "inputs": {
+      "model": "ema_vae_fp16.safetensors",
+      "device": "cuda:0",
+      "encode_tiled": true,
+      "encode_tile_size": 1024,
+      "encode_tile_overlap": 128,
+      "decode_tiled": true,
+      "decode_tile_size": 1024,
+      "decode_tile_overlap": 128,
+      "tile_debug": "false",
+      "offload_device": "cpu",
+      "cache_model": false
+    },
+    "_meta": {"title": "SeedVR2 Load VAE"}
+  },
+  "53": {
+    "class_type": "SeedVR2LoadDiTModel",
+    "inputs": {
+      "model": "seedvr2_ema_3b-Q4_K_M.gguf",
+      "device": "cuda:0",
+      "max_seq_len": 32,
+      "cache_model": true,
+      "offload_device": "cpu",
+      "attention": "flash_attn",
+      "attention_api": "flash_attn_3"
+    },
+    "_meta": {"title": "SeedVR2 Load DiT"}
+  },
+  "54": {
+    "class_type": "SeedVR2VideoUpscaler",
+    "inputs": {
+      "image": ["51", 0],
+      "dit": ["53", 0],
+      "vae": ["52", 0],
+      "seed": 42,
+      "resolution": 896,
+      "max_resolution": 4096,
+      "batch_size": 1,
+      "uniform_batch_size": false,
+      "color_correction": "lab",
+      "temporal_overlap": 0,
+      "prepend_frames": 0,
+      "input_noise_scale": 0.1,
+      "latent_noise_scale": 0,
+      "offload_device": "cpu",
+      "enable_debug": false
+    },
+    "_meta": {"title": "SeedVR2 Upscaler"}
+  },
+
   "10": {
     "class_type": "SaveImage",
     "inputs": {
-      "images": ["9", 0],
+      "images": ["54", 0],
       "filename_prefix": "nolimits_zimage"
     },
     "_meta": {"title": "Save Image"}

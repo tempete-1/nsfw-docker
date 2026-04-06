@@ -32,7 +32,11 @@ RUN cd custom_nodes && \
     git clone https://codeberg.org/Gourieff/comfyui-reactor-node.git && \
     git clone https://github.com/nunchaku-ai/ComfyUI-nunchaku.git && \
     git clone https://github.com/capitan01R/Comfyui-ZiT-Lora-loader.git && \
-    git clone https://github.com/cubiq/ComfyUI_InstantID.git
+    git clone https://github.com/cubiq/ComfyUI_InstantID.git && \
+    git clone https://github.com/Jonseed/ComfyUI-Detail-Daemon.git && \
+    git clone https://github.com/pftg/ComfyUI-SeedVR2_VideoUpscaler.git && \
+    git clone https://github.com/rgthree/rgthree-comfy.git && \
+    git clone https://github.com/city96/ComfyUI-GGUF.git
 
 # Install node dependencies
 RUN pip3 install --no-cache-dir onnxruntime-gpu 2>/dev/null || pip3 install --no-cache-dir onnxruntime
@@ -48,6 +52,9 @@ RUN cd custom_nodes/ComfyUI_InstantID && pip3 install --no-cache-dir -r requirem
 RUN cd custom_nodes/ComfyUI-nunchaku && pip3 install --no-cache-dir -r requirements.txt 2>/dev/null || true
 RUN pip3 install --no-cache-dir nunchaku 2>/dev/null || true
 RUN pip3 install --no-cache-dir ffmpeg-python
+RUN cd custom_nodes/ComfyUI-Detail-Daemon && pip3 install --no-cache-dir -r requirements.txt 2>/dev/null || true
+RUN cd custom_nodes/ComfyUI-SeedVR2_VideoUpscaler && pip3 install --no-cache-dir -r requirements.txt 2>/dev/null || true
+RUN cd custom_nodes/ComfyUI-GGUF && pip3 install --no-cache-dir -r requirements.txt 2>/dev/null || true
 
 # Verify PuLID nodes exist
 RUN ls -la custom_nodes/PuLID_ComfyUI/*.py | head -5

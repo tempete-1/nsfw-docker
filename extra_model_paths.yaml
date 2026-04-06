@@ -19,3 +19,7 @@ zimage:
     loras: loras/
     vae: vae/
     clip: text_encoders/
+seedvr2:
+    base_path: /runpod-volume/models/seedvr2
+    diffusion_models: ./
+    vae: ./
