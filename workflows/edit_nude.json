@@ -16,7 +16,7 @@
   "21": {
     "class_type": "GroundingDinoModelLoader (segment anything)",
     "inputs": {
-      "model_name": "GroundingDINO_SwinT_OGC"
+      "model_name": "GroundingDINO_SwinT_OGC (694MB)"
     },
     "_meta": {"title": "Load GroundingDINO"}
   },
