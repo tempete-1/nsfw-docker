@@ -333,6 +333,8 @@ def build_workflow(job_input: dict) -> dict:
         "edit_dark": "edit_dark",
         "edit": "edit_easy",
         "dark_beast": "edit_dark",
+        "edit_nude": "edit_nude",
+        "edit_controlnet": "edit_controlnet",
     }
     workflow_name = workflow_map.get(mode, workflow_map.get(action, "generate"))
     print(f"Loading workflow: {workflow_name} (action={action}, mode={mode}, zimage={use_zimage})")
@@ -570,7 +572,7 @@ def handler(job):
 
         # Face restore for edit modes (keep original face after edit)
         need_face_restore = (
-            mode in ("edit_dark", "edit_easy") or action in ("edit", "dark_beast")
+            mode in ("edit_dark", "edit_easy", "edit_nude", "edit_controlnet") or action in ("edit", "dark_beast")
         ) and job_input.get("photo")
 
         original_face_fname = None
@@ -735,6 +737,23 @@ link_model(
      "/workspace/models/facerestore_models/codeformer-v0.1.0.pth"],
     "/comfyui/models/facerestore_models/codeformer-v0.1.0.pth",
 )
+print("=== Linking SAM / GroundingDINO models ===")
+link_model(
+    ["/workspace/models/sams/sam_vit_h_4b8939.pth",
+     "/runpod-volume/models/sams/sam_vit_h_4b8939.pth"],
+    "/comfyui/models/sams/sam_vit_h_4b8939.pth",
+)
+# GroundingDINO — the custom node looks in its own models dir
+gdino_dst = "/comfyui/custom_nodes/comfyui_segment_anything/models/grounding-dino"
+os.makedirs(gdino_dst, exist_ok=True)
+for gdino_file in ["GroundingDINO_SwinT_OGC.py", "GroundingDINO_SwinT_OGC.cfg.py",
+                    "groundingdino_swint_ogc.pth"]:
+    link_model(
+        [f"/workspace/models/grounding-dino/{gdino_file}",
+         f"/runpod-volume/models/grounding-dino/{gdino_file}"],
+        os.path.join(gdino_dst, gdino_file),
+    )
+
 check_models()
 if not start_comfyui():
     print("FATAL: ComfyUI did not start")

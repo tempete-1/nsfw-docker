@@ -8,6 +8,7 @@ workspace_volume:
     unet: wan/
     insightface: insightface/
     facerestore_models: facerestore_models/
+    sams: sams/
 runpod_volume:
     base_path: /runpod-volume/models
     diffusion_models: diffusion_models/
@@ -18,6 +19,7 @@ runpod_volume:
     unet: wan/
     insightface: insightface/
     facerestore_models: facerestore_models/
+    sams: sams/
 wan_models:
     base_path: /workspace/models/wan
     diffusion_models: ./

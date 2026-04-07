@@ -1,0 +1,134 @@
+{
+  "10": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "input.png"
+    },
+    "_meta": {"title": "Load Photo"}
+  },
+  "20": {
+    "class_type": "SAMModelLoader (segment anything)",
+    "inputs": {
+      "model_name": "sam_vit_h_4b8939.pth"
+    },
+    "_meta": {"title": "Load SAM Model"}
+  },
+  "21": {
+    "class_type": "GroundingDinoModelLoader (segment anything)",
+    "inputs": {
+      "model_name": "GroundingDINO_SwinT_OGC"
+    },
+    "_meta": {"title": "Load GroundingDINO"}
+  },
+  "22": {
+    "class_type": "GroundingDinoSAMSegment (segment anything)",
+    "inputs": {
+      "sam_model": ["20", 0],
+      "grounding_dino_model": ["21", 0],
+      "image": ["10", 0],
+      "prompt": "clothes, bra, underwear, panties, stockings, dress, shirt, pants, skirt, lingerie, bikini, swimsuit",
+      "threshold": 0.3
+    },
+    "_meta": {"title": "Segment Clothing"}
+  },
+  "25": {
+    "class_type": "InvertMask",
+    "inputs": {
+      "mask": ["22", 1]
+    },
+    "_meta": {"title": "Invert Mask (clothes=white)"}
+  },
+  "30": {
+    "class_type": "GrowMask",
+    "inputs": {
+      "mask": ["25", 0],
+      "expand": 10,
+      "tapered_corners": true
+    },
+    "_meta": {"title": "Grow Mask (smooth edges)"}
+  },
+  "1": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "flux1-fill-dev.safetensors",
+      "weight_dtype": "fp8_e4m3fn"
+    },
+    "_meta": {"title": "Load UNET (Fill)"}
+  },
+  "3": {
+    "class_type": "DualCLIPLoader",
+    "inputs": {
+      "clip_name1": "clip_l.safetensors",
+      "clip_name2": "t5xxl_fp16.safetensors",
+      "type": "flux"
+    },
+    "_meta": {"title": "CLIP Loader"}
+  },
+  "4": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "ae.safetensors"
+    },
+    "_meta": {"title": "VAE Loader"}
+  },
+  "7": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": ["3", 0],
+      "text": "nude body, bare skin, natural skin texture"
+    },
+    "_meta": {"title": "positive prompt"}
+  },
+  "8": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": ["3", 0],
+      "text": "blurry, ugly, deformed, watermark, text, low quality, cartoon, clothes, fabric, dressed"
+    },
+    "_meta": {"title": "negative prompt"}
+  },
+  "9": {
+    "class_type": "InpaintModelConditioning",
+    "inputs": {
+      "positive": ["7", 0],
+      "negative": ["8", 0],
+      "vae": ["4", 0],
+      "pixels": ["10", 0],
+      "mask": ["30", 0],
+      "noise_mask": true
+    },
+    "_meta": {"title": "Inpaint Model Conditioning"}
+  },
+  "40": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": ["1", 0],
+      "positive": ["9", 0],
+      "negative": ["9", 1],
+      "latent_image": ["9", 2],
+      "seed": 42,
+      "steps": 25,
+      "cfg": 1.5,
+      "sampler_name": "euler",
+      "scheduler": "normal",
+      "denoise": 1.0
+    },
+    "_meta": {"title": "KSampler"}
+  },
+  "11": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": ["40", 0],
+      "vae": ["4", 0]
+    },
+    "_meta": {"title": "VAE Decode"}
+  },
+  "12": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": ["11", 0],
+      "filename_prefix": "nolimits_edit_nude"
+    },
+    "_meta": {"title": "Save Image"}
+  }
+}

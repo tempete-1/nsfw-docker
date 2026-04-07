@@ -38,7 +38,8 @@ RUN cd custom_nodes && \
     git clone https://github.com/Jonseed/ComfyUI-Detail-Daemon.git && \
     git clone https://github.com/numz/ComfyUI-SeedVR2_VideoUpscaler.git && \
     git clone https://github.com/rgthree/rgthree-comfy.git && \
-    git clone https://github.com/city96/ComfyUI-GGUF.git
+    git clone https://github.com/city96/ComfyUI-GGUF.git && \
+    git clone https://github.com/storyicon/comfyui_segment_anything.git
 
 # Install node dependencies
 RUN pip3 install --no-cache-dir onnxruntime-gpu 2>/dev/null || pip3 install --no-cache-dir onnxruntime
@@ -58,6 +59,9 @@ RUN cd custom_nodes/ComfyUI-Detail-Daemon && pip3 install --no-cache-dir -r requ
 RUN cd custom_nodes/ComfyUI-SeedVR2_VideoUpscaler && pip3 install --no-cache-dir -r requirements.txt
 RUN pip3 install --no-cache-dir gguf_connector 2>/dev/null || true
 RUN cd custom_nodes/ComfyUI-GGUF && pip3 install --no-cache-dir -r requirements.txt 2>/dev/null || true
+RUN cd custom_nodes/comfyui_segment_anything && pip3 install --no-cache-dir -r requirements.txt 2>/dev/null || true
+# Pin transformers for GroundingDINO compatibility
+RUN pip3 install --no-cache-dir transformers==4.38.2
 
 # Verify PuLID nodes exist
 RUN ls -la custom_nodes/PuLID_ComfyUI/*.py | head -5
@@ -76,6 +80,8 @@ RUN mkdir -p /comfyui/input \
     /comfyui/models/insightface \
     /comfyui/models/facerestore_models \
     /comfyui/models/instantid \
-    /comfyui/models/controlnet
+    /comfyui/models/controlnet \
+    /comfyui/models/sams \
+    /comfyui/models/grounding-dino
 
 CMD ["python3", "-u", "/handler.py"]
