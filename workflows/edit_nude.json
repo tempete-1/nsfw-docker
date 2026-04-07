@@ -6,47 +6,47 @@
     },
     "_meta": {"title": "Load Photo"}
   },
+
   "20": {
-    "class_type": "SAMModelLoader (segment anything)",
+    "class_type": "segformer_b2_clothes",
     "inputs": {
-      "model_name": "sam_vit_h (2.56GB)"
-    },
-    "_meta": {"title": "Load SAM Model"}
-  },
-  "21": {
-    "class_type": "GroundingDinoModelLoader (segment anything)",
-    "inputs": {
-      "model_name": "GroundingDINO_SwinT_OGC (694MB)"
-    },
-    "_meta": {"title": "Load GroundingDINO"}
-  },
-  "22": {
-    "class_type": "GroundingDinoSAMSegment (segment anything)",
-    "inputs": {
-      "sam_model": ["20", 0],
-      "grounding_dino_model": ["21", 0],
       "image": ["10", 0],
-      "prompt": "clothes, bra, underwear, panties, stockings, dress, shirt, pants, skirt, lingerie, bikini, swimsuit",
-      "threshold": 0.3
+      "Face": false,
+      "Hat": false,
+      "Hair": false,
+      "Upper_clothes": true,
+      "Skirt": true,
+      "Pants": true,
+      "Dress": true,
+      "Belt": true,
+      "Shoe": false,
+      "Leg": false,
+      "Arm": false,
+      "Bag": false,
+      "Scarf": true
     },
-    "_meta": {"title": "Segment Clothing"}
+    "_meta": {"title": "Segment Clothing (Segformer)"}
   },
-  "25": {
-    "class_type": "InvertMask",
+
+  "21": {
+    "class_type": "ImageToMask",
     "inputs": {
-      "mask": ["22", 1]
+      "image": ["20", 0],
+      "channel": "red"
     },
-    "_meta": {"title": "Invert Mask (clothes=white)"}
+    "_meta": {"title": "Image to Mask"}
   },
+
   "30": {
     "class_type": "GrowMask",
     "inputs": {
-      "mask": ["22", 1],
-      "expand": 10,
+      "mask": ["21", 0],
+      "expand": 15,
       "tapered_corners": true
     },
     "_meta": {"title": "Grow Mask (smooth edges)"}
   },
+
   "1": {
     "class_type": "UNETLoader",
     "inputs": {
@@ -75,7 +75,7 @@
     "class_type": "CLIPTextEncode",
     "inputs": {
       "clip": ["3", 0],
-      "text": "nude body, bare skin, natural skin texture"
+      "text": "completely naked nude body, bare breasts with nipples, exposed pussy, smooth bare skin, natural skin texture with pores, photorealistic"
     },
     "_meta": {"title": "positive prompt"}
   },
@@ -83,7 +83,7 @@
     "class_type": "CLIPTextEncode",
     "inputs": {
       "clip": ["3", 0],
-      "text": "blurry, ugly, deformed, watermark, text, low quality, cartoon, clothes, fabric, dressed"
+      "text": "blurry, ugly, deformed, watermark, text, low quality, cartoon, clothes, fabric, dressed, bra, underwear"
     },
     "_meta": {"title": "negative prompt"}
   },

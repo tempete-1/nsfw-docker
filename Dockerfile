@@ -39,7 +39,8 @@ RUN cd custom_nodes && \
     git clone https://github.com/numz/ComfyUI-SeedVR2_VideoUpscaler.git && \
     git clone https://github.com/rgthree/rgthree-comfy.git && \
     git clone https://github.com/city96/ComfyUI-GGUF.git && \
-    git clone https://github.com/storyicon/comfyui_segment_anything.git
+    git clone https://github.com/storyicon/comfyui_segment_anything.git && \
+    git clone https://github.com/StartHua/Comfyui_segformer_b2_clothes.git
 
 # Install node dependencies
 RUN pip3 install --no-cache-dir onnxruntime-gpu 2>/dev/null || pip3 install --no-cache-dir onnxruntime
@@ -62,6 +63,10 @@ RUN cd custom_nodes/ComfyUI-GGUF && pip3 install --no-cache-dir -r requirements.
 RUN cd custom_nodes/comfyui_segment_anything && pip3 install --no-cache-dir -r requirements.txt 2>/dev/null || true
 # Pin transformers for GroundingDINO compatibility
 RUN pip3 install --no-cache-dir transformers==4.38.2
+
+# Download Segformer B2 Clothes model (~549MB, baked into image)
+RUN mkdir -p /comfyui/custom_nodes/Comfyui_segformer_b2_clothes/models/segformer_b2_clothes && \
+    python3 -c "from huggingface_hub import snapshot_download; snapshot_download('mattmdjaga/segformer_b2_clothes', local_dir='/comfyui/custom_nodes/Comfyui_segformer_b2_clothes/models/segformer_b2_clothes')"
 
 # Verify PuLID nodes exist
 RUN ls -la custom_nodes/PuLID_ComfyUI/*.py | head -5
