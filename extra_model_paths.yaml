@@ -1,3 +1,13 @@
+workspace_volume:
+    base_path: /workspace/models
+    diffusion_models: diffusion_models/
+    loras: loras/
+    vae: vae/
+    clip: text_encoders/
+    controlnet: controlnet/
+    unet: wan/
+    insightface: insightface/
+    facerestore_models: facerestore_models/
 runpod_volume:
     base_path: /runpod-volume/models
     diffusion_models: diffusion_models/
@@ -9,17 +19,11 @@ runpod_volume:
     insightface: insightface/
     facerestore_models: facerestore_models/
 wan_models:
-    base_path: /runpod-volume/models/wan
+    base_path: /workspace/models/wan
     diffusion_models: ./
     vae: ./
     clip: ./
-zimage:
-    base_path: /runpod-volume/models
-    diffusion_models: diffusion_models/
-    loras: loras/
-    vae: vae/
-    clip: text_encoders/
 seedvr2:
-    base_path: /runpod-volume/models/seedvr2
+    base_path: /workspace/models/seedvr2
     diffusion_models: ./
     vae: ./

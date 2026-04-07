@@ -84,7 +84,8 @@ POSE_LORAS = [
     },
 ]
 
-LORA_BASE_PATH = "/runpod-volume/models/loras"
+# Try /workspace first (pod volume mount), fallback to /runpod-volume
+LORA_BASE_PATH = "/workspace/models/loras" if os.path.exists("/workspace/models/loras") else "/runpod-volume/models/loras"
 
 
 def detect_pose_lora(prompt: str) -> dict | None:
