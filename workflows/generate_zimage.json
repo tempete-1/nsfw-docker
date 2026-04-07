@@ -2,10 +2,10 @@
   "1": {
     "class_type": "UNETLoader",
     "inputs": {
-      "unet_name": "zimage_turbo_nsfw.safetensors",
-      "weight_dtype": "fp8_e4m3fn"
+      "unet_name": "zimage_turbo_nsfw_2602.safetensors",
+      "weight_dtype": "default"
     },
-    "_meta": {"title": "Load Z-Image Turbo NSFW"}
+    "_meta": {"title": "Load Z-Image Turbo NSFW 2602"}
   },
   "2": {
     "class_type": "CLIPLoader",
@@ -41,8 +41,8 @@
   "6": {
     "class_type": "EmptySD3LatentImage",
     "inputs": {
-      "width": 896,
-      "height": 1152,
+      "width": 848,
+      "height": 1200,
       "batch_size": 1
     },
     "_meta": {"title": "Empty Latent"}
@@ -63,13 +63,13 @@
       "negative": ["5", 0],
       "latent_image": ["6", 0],
       "seed": 42,
-      "steps": 5,
-      "cfg": 1.0,
+      "steps": 20,
+      "cfg": 3.0,
       "sampler_name": "heunpp2",
       "scheduler": "linear_quadratic",
       "denoise": 1.0
     },
-    "_meta": {"title": "KSampler"}
+    "_meta": {"title": "KSampler Pass 1"}
   },
   "20": {
     "class_type": "LatentUpscaleBy",
@@ -89,7 +89,7 @@
       "latent_image": ["20", 0],
       "seed": 42,
       "steps": 5,
-      "cfg": 1.0,
+      "cfg": 3.0,
       "sampler_name": "euler_ancestral",
       "scheduler": "simple",
       "denoise": 0.18
