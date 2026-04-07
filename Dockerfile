@@ -64,9 +64,12 @@ RUN cd custom_nodes/comfyui_segment_anything && pip3 install --no-cache-dir -r r
 # Pin transformers for GroundingDINO compatibility
 RUN pip3 install --no-cache-dir transformers==4.38.2
 
-# Download Segformer B2 Clothes model (~549MB, baked into image)
+# Segformer B2 Clothes: install deps + download model (~549MB, baked into image)
+RUN pip3 install --no-cache-dir scipy
 RUN mkdir -p /comfyui/custom_nodes/Comfyui_segformer_b2_clothes/models/segformer_b2_clothes && \
     python3 -c "from huggingface_hub import snapshot_download; snapshot_download('mattmdjaga/segformer_b2_clothes', local_dir='/comfyui/custom_nodes/Comfyui_segformer_b2_clothes/models/segformer_b2_clothes')"
+# Verify Segformer node loads
+RUN python3 -c "import sys; sys.path.insert(0,'/comfyui'); from custom_nodes.Comfyui_segformer_b2_clothes.segformer_b2_clothes import segformer_b2_clothes; print('Segformer OK')"
 
 # Verify PuLID nodes exist
 RUN ls -la custom_nodes/PuLID_ComfyUI/*.py | head -5
