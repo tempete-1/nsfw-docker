@@ -9,7 +9,7 @@
   "20": {
     "class_type": "SAMModelLoader (segment anything)",
     "inputs": {
-      "model_name": "sam_vit_h_4b8939.pth"
+      "model_name": "sam_vit_h (2.56GB)"
     },
     "_meta": {"title": "Load SAM Model"}
   },
