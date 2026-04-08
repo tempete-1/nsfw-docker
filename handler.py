@@ -319,7 +319,7 @@ def segment_clothing_mask(photo_b64: str) -> str:
 
     # Load Segformer model
     from transformers import SegformerForSemanticSegmentation, SegformerFeatureExtractor
-    model_path = "/comfyui/custom_nodes/Comfyui_segformer_b2_clothes/models/segformer_b2_clothes"
+    model_path = "/models/segformer_b2_clothes"
     if not os.path.exists(model_path):
         # Fallback: download at runtime
         model_path = "mattmdjaga/segformer_b2_clothes"
