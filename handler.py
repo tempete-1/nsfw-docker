@@ -307,6 +307,73 @@ def save_mask_image(b64_data: str) -> str:
     return fname
 
 
+def segment_clothing_mask(photo_b64: str) -> str:
+    """Run Segformer B2 to create a mask of clothing areas. Returns base64 mask."""
+    from PIL import Image
+    import io
+    import numpy as np
+
+    print("  Running Segformer clothing segmentation...")
+    img_bytes = base64.b64decode(photo_b64)
+    image = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+
+    # Load Segformer model
+    from transformers import SegformerForSemanticSegmentation, SegformerFeatureExtractor
+    model_path = "/comfyui/custom_nodes/Comfyui_segformer_b2_clothes/models/segformer_b2_clothes"
+    if not os.path.exists(model_path):
+        # Fallback: download at runtime
+        model_path = "mattmdjaga/segformer_b2_clothes"
+    feature_extractor = SegformerFeatureExtractor.from_pretrained(model_path)
+    model = SegformerForSemanticSegmentation.from_pretrained(model_path)
+
+    import torch
+    inputs = feature_extractor(images=image, return_tensors="pt")
+    with torch.no_grad():
+        outputs = model(**inputs)
+
+    # Get segmentation map
+    logits = outputs.logits
+    upsampled = torch.nn.functional.interpolate(
+        logits, size=image.size[::-1], mode="bilinear", align_corners=False
+    )
+    seg_map = upsampled.argmax(dim=1).squeeze().cpu().numpy()
+
+    # ATR dataset labels: 0=Background, 1=Hat, 2=Hair, 3=Sunglasses, 4=Upper-clothes,
+    # 5=Skirt, 6=Pants, 7=Dress, 8=Belt, 9=Left-shoe, 10=Right-shoe,
+    # 11=Face, 12=Left-leg, 13=Right-leg, 14=Left-arm, 15=Right-arm, 16=Bag, 17=Scarf
+    clothing_labels = {4, 5, 6, 7, 8, 17}  # Upper-clothes, Skirt, Pants, Dress, Belt, Scarf
+
+    # Create binary mask: white = clothing (to inpaint), black = keep
+    mask = np.zeros_like(seg_map, dtype=np.uint8)
+    for label in clothing_labels:
+        mask[seg_map == label] = 255
+
+    # Dilate mask slightly for smoother edges
+    from PIL import ImageFilter
+    mask_img = Image.fromarray(mask, mode="L")
+    mask_img = mask_img.filter(ImageFilter.MaxFilter(7))
+
+    # Convert to RGBA with alpha channel for ComfyUI mask format
+    # White in mask → alpha 0 (transparent = masked area to inpaint)
+    r, g, b = mask_img, mask_img, mask_img
+    from PIL import ImageOps
+    inv_mask = ImageOps.invert(mask_img)
+    result = Image.merge("RGBA", (
+        Image.new("L", mask_img.size, 255),
+        Image.new("L", mask_img.size, 255),
+        Image.new("L", mask_img.size, 255),
+        inv_mask,
+    ))
+
+    # Save mask
+    comfy_input = "/comfyui/input"
+    os.makedirs(comfy_input, exist_ok=True)
+    fname = f"segmask_{uuid.uuid4().hex[:8]}.png"
+    result.save(os.path.join(comfy_input, fname), "PNG")
+    print(f"  Segformer mask saved: {fname} (clothing pixels: {np.sum(mask > 0)})")
+    return fname
+
+
 def load_workflow(action: str) -> dict:
     """Load workflow template JSON."""
     path = f"/workflows/{action}.json"
@@ -498,8 +565,12 @@ def build_workflow(job_input: dict) -> dict:
         # Set input image
         if class_type == "LoadImage":
             if "mask" in meta_title:
-                # Mask image — save with alpha channel
-                if "mask" in job_input and job_input["mask"]:
+                # Segformer auto-mask (from edit_nude)
+                if "_segformer_mask" in job_input and job_input["_segformer_mask"]:
+                    node["inputs"]["image"] = job_input["_segformer_mask"]
+                    print(f"  Set Segformer mask on node {node_id}")
+                # User-provided mask — save with alpha channel
+                elif "mask" in job_input and job_input["mask"]:
                     fname = save_mask_image(job_input["mask"])
                     node["inputs"]["image"] = fname
                     print(f"  Set mask on node {node_id}")
@@ -579,6 +650,17 @@ def handler(job):
         if need_face_restore:
             original_face_fname = save_base64_image(job_input["photo"], "origface")
             print(f"  Saved original face for restore: {original_face_fname}")
+
+        # edit_nude: run Segformer to create clothing mask, then use inpaint workflow
+        if mode == "edit_nude" and job_input.get("photo"):
+            print("  edit_nude: generating clothing mask via Segformer...")
+            mask_fname = segment_clothing_mask(job_input["photo"])
+            # Override: use inpaint workflow with auto-generated mask
+            job_input["mask"] = None  # clear any user mask
+            job_input["_segformer_mask"] = mask_fname
+            job_input["mode"] = "inpaint"  # redirect to inpaint workflow
+            mode = "inpaint"
+            print(f"  edit_nude: redirected to inpaint with mask {mask_fname}")
 
         # Face swap for any mode (user uploads face_photo → swap onto generated image)
         face_photo = job_input.get("face_photo")
