@@ -78,7 +78,7 @@ RUN python3 -m venv /opt/chatterbox-venv && \
     /opt/chatterbox-venv/bin/pip install --no-cache-dir --upgrade pip && \
     /opt/chatterbox-venv/bin/pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121 && \
     /opt/chatterbox-venv/bin/pip install --no-cache-dir chatterbox-tts && \
-    /opt/chatterbox-venv/bin/pip install --no-cache-dir "transformers>=4.43,<5.0"
+    /opt/chatterbox-venv/bin/pip install --no-cache-dir "transformers>=4.43,<5.0" sentencepiece protobuf accelerate
 # Voice generation runs via subprocess using this venv's python
 
 # RunPod SDK + extras
