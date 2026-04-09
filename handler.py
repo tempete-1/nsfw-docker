@@ -18,6 +18,7 @@ import glob as globmod
 
 COMFY_HOST = "127.0.0.1:8188"
 comfy_process = None
+_chatterbox_model = None
 
 # ── Auto-detect pose LoRA by prompt keywords ──
 # Order matters: first match wins. More specific patterns go first.
@@ -639,6 +640,36 @@ def build_face_restore_workflow(generated_image_fname: str, original_face_fname:
     }
 
 
+def generate_voice(text: str, exaggeration: float = 0.7, language: str = "ru") -> str:
+    """Generate voice audio from text using Chatterbox TTS. Returns base64 WAV."""
+    global _chatterbox_model
+    import torch
+    import torchaudio
+    import io
+
+    print(f"  Voice: generating audio for text ({len(text)} chars), exaggeration={exaggeration}, lang={language}")
+
+    if _chatterbox_model is None:
+        print("  Voice: loading Chatterbox model...")
+        os.environ["HF_HOME"] = "/models/chatterbox"
+        from chatterbox.tts import ChatterboxTTS
+        _chatterbox_model = ChatterboxTTS.from_pretrained(device="cuda")
+        print("  Voice: model loaded")
+
+    wav = _chatterbox_model.generate(
+        text=text,
+        exaggeration=exaggeration,
+    )
+
+    # Encode WAV to base64
+    buf = io.BytesIO()
+    torchaudio.save(buf, wav, _chatterbox_model.sr, format="wav")
+    buf.seek(0)
+    audio_b64 = base64.b64encode(buf.read()).decode()
+    print(f"  Voice: generated {len(audio_b64)} bytes base64 audio")
+    return audio_b64
+
+
 def handler(job):
     """RunPod serverless handler."""
     try:
@@ -649,6 +680,14 @@ def handler(job):
 
         mode = job_input.get("mode", "generate")
         action = job_input.get("action", "generate")
+
+        # Voice generation — skip ComfyUI entirely
+        if action == "voice":
+            text = job_input.get("prompt", "")
+            exaggeration = float(job_input.get("exaggeration", 0.7))
+            language = job_input.get("language", "ru")
+            audio_b64 = generate_voice(text, exaggeration, language)
+            return {"status": "success", "audio": audio_b64, "images": []}
 
         # Face restore for edit modes (keep original face after edit)
         need_face_restore = (

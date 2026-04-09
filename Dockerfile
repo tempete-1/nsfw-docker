@@ -72,6 +72,11 @@ RUN mkdir -p /models/segformer_b2_clothes && \
 # Verify PuLID nodes exist
 RUN ls -la custom_nodes/PuLID_ComfyUI/*.py | head -5
 
+# Chatterbox TTS for voice generation
+RUN pip3 install --no-cache-dir chatterbox-tts torchaudio
+RUN mkdir -p /models/chatterbox && \
+    python3 -c "import os; os.environ['HF_HOME']='/models/chatterbox'; from chatterbox.tts import ChatterboxTTS; m = ChatterboxTTS.from_pretrained(device='cpu'); del m; print('Chatterbox model downloaded')" || echo "Chatterbox download deferred to runtime"
+
 # RunPod SDK + extras
 RUN pip3 install --no-cache-dir runpod
 RUN pip3 install --no-cache-dir Pillow
