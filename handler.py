@@ -341,21 +341,34 @@ def segment_clothing_mask(photo_b64: str) -> str:
     # ATR dataset labels: 0=Background, 1=Hat, 2=Hair, 3=Sunglasses, 4=Upper-clothes,
     # 5=Skirt, 6=Pants, 7=Dress, 8=Belt, 9=Left-shoe, 10=Right-shoe,
     # 11=Face, 12=Left-leg, 13=Right-leg, 14=Left-arm, 15=Right-arm, 16=Bag, 17=Scarf
-    clothing_labels = {4, 5, 6, 7, 8, 17}  # Upper-clothes, Skirt, Pants, Dress, Belt, Scarf
+    # Include all clothing + stockings/shoes (legs covered by stockings = clothing)
+    clothing_labels = {4, 5, 6, 7, 8, 9, 10, 17}  # Upper-clothes, Skirt, Pants, Dress, Belt, L/R-shoe, Scarf
+
+    # Also detect legs IF they're likely covered by stockings (heuristic: if upper clothes exist)
+    has_upper = np.any(seg_map == 4)  # Upper-clothes detected
+    if has_upper:
+        clothing_labels.update({12, 13})  # Left-leg, Right-leg (likely stockings)
 
     # Create binary mask: white = clothing (to inpaint), black = keep
     mask = np.zeros_like(seg_map, dtype=np.uint8)
     for label in clothing_labels:
         mask[seg_map == label] = 255
 
-    # Dilate mask slightly for smoother edges
+    # Strong dilation for smooth edges and coverage
     from PIL import ImageFilter
     mask_img = Image.fromarray(mask, mode="L")
-    mask_img = mask_img.filter(ImageFilter.MaxFilter(7))
+    mask_img = mask_img.filter(ImageFilter.MaxFilter(15))  # bigger dilation
+    mask_img = mask_img.filter(ImageFilter.GaussianBlur(3))  # smooth edges
+
+    # Debug: save visible mask for inspection
+    debug_path = os.path.join("/comfyui/input", f"debug_mask_{uuid.uuid4().hex[:8]}.png")
+    mask_img.save(debug_path, "PNG")
+    print(f"  Debug mask saved: {debug_path}")
+    print(f"  Mask stats: min={np.array(mask_img).min()}, max={np.array(mask_img).max()}, mean={np.array(mask_img).mean():.1f}")
 
     # Convert to RGBA with alpha channel for ComfyUI mask format
-    # White in mask → alpha 0 (transparent = masked area to inpaint)
-    r, g, b = mask_img, mask_img, mask_img
+    # clothing area: alpha=0 (transparent) → ComfyUI mask=1.0 → inpaint here
+    # keep area: alpha=255 (opaque) → ComfyUI mask=0.0 → keep
     from PIL import ImageOps
     inv_mask = ImageOps.invert(mask_img)
     result = Image.merge("RGBA", (
