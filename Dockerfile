@@ -73,11 +73,12 @@ RUN mkdir -p /models/segformer_b2_clothes && \
 # Verify PuLID nodes exist
 RUN ls -la custom_nodes/PuLID_ComfyUI/*.py | head -5
 
-# Chatterbox TTS in isolated venv (needs transformers==5.2.0, conflicts with ComfyUI's 4.38.2)
+# Chatterbox TTS in isolated venv (needs transformers>=4.43, conflicts with ComfyUI's 4.38.2)
 RUN python3 -m venv /opt/chatterbox-venv && \
     /opt/chatterbox-venv/bin/pip install --no-cache-dir --upgrade pip && \
     /opt/chatterbox-venv/bin/pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121 && \
-    /opt/chatterbox-venv/bin/pip install --no-cache-dir chatterbox-tts
+    /opt/chatterbox-venv/bin/pip install --no-cache-dir chatterbox-tts && \
+    /opt/chatterbox-venv/bin/pip install --no-cache-dir "transformers>=4.43,<5.0"
 # Voice generation runs via subprocess using this venv's python
 
 # RunPod SDK + extras
