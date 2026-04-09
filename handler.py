@@ -341,24 +341,20 @@ def segment_clothing_mask(photo_b64: str) -> str:
     # ATR dataset labels: 0=Background, 1=Hat, 2=Hair, 3=Sunglasses, 4=Upper-clothes,
     # 5=Skirt, 6=Pants, 7=Dress, 8=Belt, 9=Left-shoe, 10=Right-shoe,
     # 11=Face, 12=Left-leg, 13=Right-leg, 14=Left-arm, 15=Right-arm, 16=Bag, 17=Scarf
-    # Include all clothing + stockings/shoes (legs covered by stockings = clothing)
-    clothing_labels = {4, 5, 6, 7, 8, 9, 10, 17}  # Upper-clothes, Skirt, Pants, Dress, Belt, L/R-shoe, Scarf
-
-    # Also detect legs IF they're likely covered by stockings (heuristic: if upper clothes exist)
-    has_upper = np.any(seg_map == 4)  # Upper-clothes detected
-    if has_upper:
-        clothing_labels.update({12, 13})  # Left-leg, Right-leg (likely stockings)
+    # Mask ENTIRE BODY (clothing + skin + arms + legs) — removes clothes AND tattoos
+    # Keep only: Background(0), Hat(1), Hair(2), Sunglasses(3), Face(11), Bag(16)
+    clothing_labels = {4, 5, 6, 7, 8, 9, 10, 12, 13, 14, 15, 17}
 
     # Create binary mask: white = clothing (to inpaint), black = keep
     mask = np.zeros_like(seg_map, dtype=np.uint8)
     for label in clothing_labels:
         mask[seg_map == label] = 255
 
-    # Strong dilation for smooth edges and coverage
+    # Strong dilation for smooth edges and full body coverage
     from PIL import ImageFilter
     mask_img = Image.fromarray(mask, mode="L")
-    mask_img = mask_img.filter(ImageFilter.MaxFilter(15))  # bigger dilation
-    mask_img = mask_img.filter(ImageFilter.GaussianBlur(3))  # smooth edges
+    mask_img = mask_img.filter(ImageFilter.MaxFilter(21))  # aggressive dilation to merge body segments
+    mask_img = mask_img.filter(ImageFilter.GaussianBlur(5))  # smooth edges wider
 
     # Debug: save visible mask for inspection
     debug_path = os.path.join("/comfyui/input", f"debug_mask_{uuid.uuid4().hex[:8]}.png")
