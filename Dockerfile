@@ -67,16 +67,17 @@ RUN pip3 install --no-cache-dir transformers==4.38.2
 # Segformer B2 model for handler.py clothing segmentation (~549MB)
 RUN pip3 install --no-cache-dir scipy
 RUN mkdir -p /models/segformer_b2_clothes && \
+    python3 -c "from huggingface_hub import snapshot_download; snapshot_download('mattmdjaga/segformer_b2_clothes', local_dir='/models/segformer_b2_clothes')" || \
     python3 -c "from huggingface_hub import snapshot_download; snapshot_download('mattmdjaga/segformer_b2_clothes', local_dir='/models/segformer_b2_clothes')"
 
 # Verify PuLID nodes exist
 RUN ls -la custom_nodes/PuLID_ComfyUI/*.py | head -5
 
 # Chatterbox TTS for voice generation (needs newer transformers than 4.38.2)
-RUN pip3 install --no-cache-dir chatterbox-tts torchaudio
-RUN pip3 install --no-cache-dir --upgrade transformers
-RUN mkdir -p /models/chatterbox && \
-    python3 -c "import os; os.environ['HF_HOME']='/models/chatterbox'; from chatterbox.tts import ChatterboxTTS; m = ChatterboxTTS.from_pretrained(device='cpu'); del m; print('Chatterbox model downloaded')" || echo "Chatterbox download deferred to runtime"
+RUN pip3 install --no-cache-dir chatterbox-tts torchaudio && \
+    pip3 install --no-cache-dir "transformers>=4.45"
+# Chatterbox model will be downloaded on first voice request (lazy loading)
+# to avoid Docker build failures from HuggingFace download timeouts
 
 # RunPod SDK + extras
 RUN pip3 install --no-cache-dir runpod
