@@ -640,14 +640,14 @@ def build_face_restore_workflow(generated_image_fname: str, original_face_fname:
     }
 
 
-def generate_voice(text: str, exaggeration: float = 0.7, language: str = "ru") -> str:
+def generate_voice(text: str, exaggeration: float = 0.7, voice_sample_b64: str = None) -> str:
     """Generate voice audio from text using Chatterbox TTS. Returns base64 WAV."""
     global _chatterbox_model
     import torch
     import torchaudio
     import io
 
-    print(f"  Voice: generating audio for text ({len(text)} chars), exaggeration={exaggeration}, lang={language}")
+    print(f"  Voice: generating audio for text ({len(text)} chars), exaggeration={exaggeration}, voice_clone={voice_sample_b64 is not None}")
 
     if _chatterbox_model is None:
         print("  Voice: loading Chatterbox model...")
@@ -656,8 +656,18 @@ def generate_voice(text: str, exaggeration: float = 0.7, language: str = "ru") -
         _chatterbox_model = ChatterboxTTS.from_pretrained(device="cuda")
         print("  Voice: model loaded")
 
+    # Save voice sample if provided (for voice cloning)
+    audio_prompt_path = None
+    if voice_sample_b64:
+        audio_prompt_path = os.path.join("/comfyui/input", f"voice_ref_{uuid.uuid4().hex[:8]}.wav")
+        audio_bytes = base64.b64decode(voice_sample_b64)
+        with open(audio_prompt_path, "wb") as f:
+            f.write(audio_bytes)
+        print(f"  Voice: saved reference audio: {audio_prompt_path}")
+
     wav = _chatterbox_model.generate(
         text=text,
+        audio_prompt=audio_prompt_path,
         exaggeration=exaggeration,
     )
 
@@ -685,8 +695,8 @@ def handler(job):
         if action == "voice":
             text = job_input.get("prompt", "")
             exaggeration = float(job_input.get("exaggeration", 0.7))
-            language = job_input.get("language", "ru")
-            audio_b64 = generate_voice(text, exaggeration, language)
+            voice_sample = job_input.get("voice_sample")  # base64 audio for cloning
+            audio_b64 = generate_voice(text, exaggeration, voice_sample)
             return {"status": "success", "audio": audio_b64, "images": []}
 
         # Face restore for edit modes (keep original face after edit)

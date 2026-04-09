@@ -73,11 +73,11 @@ RUN mkdir -p /models/segformer_b2_clothes && \
 # Verify PuLID nodes exist
 RUN ls -la custom_nodes/PuLID_ComfyUI/*.py | head -5
 
-# Chatterbox TTS for voice generation (needs newer transformers than 4.38.2)
-RUN pip3 install --no-cache-dir chatterbox-tts torchaudio && \
-    pip3 install --no-cache-dir "transformers>=4.45"
+# Chatterbox TTS for voice generation (needs transformers==5.2.0)
+# This overrides the pinned transformers==4.38.2 — GroundingDINO/SAM may break
+# but they are not actively used; Segformer works fine with newer transformers
+RUN pip3 install --no-cache-dir chatterbox-tts
 # Chatterbox model will be downloaded on first voice request (lazy loading)
-# to avoid Docker build failures from HuggingFace download timeouts
 
 # RunPod SDK + extras
 RUN pip3 install --no-cache-dir runpod
