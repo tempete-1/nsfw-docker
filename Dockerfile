@@ -73,11 +73,12 @@ RUN mkdir -p /models/segformer_b2_clothes && \
 # Verify PuLID nodes exist
 RUN ls -la custom_nodes/PuLID_ComfyUI/*.py | head -5
 
-# Chatterbox TTS for voice generation (needs transformers==5.2.0)
-# This overrides the pinned transformers==4.38.2 — GroundingDINO/SAM may break
-# but they are not actively used; Segformer works fine with newer transformers
-RUN pip3 install --no-cache-dir chatterbox-tts
-# Chatterbox model will be downloaded on first voice request (lazy loading)
+# Chatterbox TTS in isolated venv (needs transformers==5.2.0, conflicts with ComfyUI's 4.38.2)
+RUN python3 -m venv /opt/chatterbox-venv && \
+    /opt/chatterbox-venv/bin/pip install --no-cache-dir --upgrade pip && \
+    /opt/chatterbox-venv/bin/pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121 && \
+    /opt/chatterbox-venv/bin/pip install --no-cache-dir chatterbox-tts
+# Voice generation runs via subprocess using this venv's python
 
 # RunPod SDK + extras
 RUN pip3 install --no-cache-dir runpod
@@ -86,6 +87,7 @@ RUN pip3 install --no-cache-dir Pillow
 # Copy config and handler
 COPY extra_model_paths.yaml /comfyui/extra_model_paths.yaml
 COPY handler.py /handler.py
+COPY voice_worker.py /voice_worker.py
 COPY workflows/ /workflows/
 
 # Create dirs for ReActor models (will be symlinked from volume at runtime)

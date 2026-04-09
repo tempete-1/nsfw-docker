@@ -18,7 +18,6 @@ import glob as globmod
 
 COMFY_HOST = "127.0.0.1:8188"
 comfy_process = None
-_chatterbox_model = None
 
 # ── Auto-detect pose LoRA by prompt keywords ──
 # Order matters: first match wins. More specific patterns go first.
@@ -641,43 +640,40 @@ def build_face_restore_workflow(generated_image_fname: str, original_face_fname:
 
 
 def generate_voice(text: str, exaggeration: float = 0.7, voice_sample_b64: str = None) -> str:
-    """Generate voice audio from text using Chatterbox TTS. Returns base64 WAV."""
-    global _chatterbox_model
-    import torch
-    import torchaudio
-    import io
-
+    """Generate voice audio via Chatterbox TTS in isolated venv. Returns base64 WAV."""
     print(f"  Voice: generating audio for text ({len(text)} chars), exaggeration={exaggeration}, voice_clone={voice_sample_b64 is not None}")
 
-    if _chatterbox_model is None:
-        print("  Voice: loading Chatterbox model...")
-        os.environ["HF_HOME"] = "/models/chatterbox"
-        from chatterbox.tts import ChatterboxTTS
-        _chatterbox_model = ChatterboxTTS.from_pretrained(device="cuda")
-        print("  Voice: model loaded")
-
-    # Save voice sample if provided (for voice cloning)
-    audio_prompt_path = None
+    # Save voice sample if provided
+    voice_sample_path = None
     if voice_sample_b64:
-        audio_prompt_path = os.path.join("/comfyui/input", f"voice_ref_{uuid.uuid4().hex[:8]}.wav")
+        voice_sample_path = os.path.join("/comfyui/input", f"voice_ref_{uuid.uuid4().hex[:8]}.wav")
         audio_bytes = base64.b64decode(voice_sample_b64)
-        with open(audio_prompt_path, "wb") as f:
+        with open(voice_sample_path, "wb") as f:
             f.write(audio_bytes)
-        print(f"  Voice: saved reference audio: {audio_prompt_path}")
+        print(f"  Voice: saved reference audio: {voice_sample_path}")
 
-    wav = _chatterbox_model.generate(
-        text=text,
-        audio_prompt=audio_prompt_path,
-        exaggeration=exaggeration,
+    # Run in isolated venv (Chatterbox needs transformers==5.2.0, ComfyUI needs 4.38.2)
+    request = json.dumps({
+        "text": text,
+        "exaggeration": exaggeration,
+        "voice_sample_path": voice_sample_path,
+    })
+
+    result = subprocess.run(
+        ["/opt/chatterbox-venv/bin/python", "/voice_worker.py"],
+        input=request,
+        capture_output=True,
+        text=True,
+        timeout=300,
     )
 
-    # Encode WAV to base64
-    buf = io.BytesIO()
-    torchaudio.save(buf, wav, _chatterbox_model.sr, format="wav")
-    buf.seek(0)
-    audio_b64 = base64.b64encode(buf.read()).decode()
-    print(f"  Voice: generated {len(audio_b64)} bytes base64 audio")
-    return audio_b64
+    if result.returncode != 0:
+        print(f"  Voice worker stderr: {result.stderr}")
+        raise RuntimeError(f"Voice generation failed: {result.stderr[-500:]}")
+
+    response = json.loads(result.stdout)
+    print(f"  Voice: generated {len(response['audio'])} bytes base64 audio")
+    return response["audio"]
 
 
 def handler(job):
