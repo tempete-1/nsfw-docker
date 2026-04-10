@@ -75,6 +75,7 @@ RUN ls -la custom_nodes/PuLID_ComfyUI/*.py | head -5
 
 # Chatterbox TTS in isolated venv (needs transformers==5.2.0, conflicts with ComfyUI's 4.38.2)
 # 1) CUDA torch first, 2) chatterbox --no-deps (so it doesn't overwrite torch), 3) remaining deps
+# 4) Patch t3.py: replace broken lazy import with direct module imports
 RUN python3 -m venv /opt/chatterbox-venv && \
     /opt/chatterbox-venv/bin/pip install --no-cache-dir --upgrade pip && \
     /opt/chatterbox-venv/bin/pip install --no-cache-dir torch torchaudio --index-url https://download.pytorch.org/whl/cu121 && \
@@ -83,6 +84,10 @@ RUN python3 -m venv /opt/chatterbox-venv && \
     /opt/chatterbox-venv/bin/pip install --no-cache-dir numpy librosa s3tokenizer pykakasi pyloudnorm "spacy-pkuseg>=0.0.27" && \
     /opt/chatterbox-venv/bin/pip install --no-cache-dir "resemble-perth @ git+https://github.com/resemble-ai/Perth.git@master" && \
     /opt/chatterbox-venv/bin/pip install --no-cache-dir sentencepiece protobuf accelerate
+# Patch chatterbox t3.py: transformers 5.2.0 lazy loader can't resolve top-level imports
+RUN T3=/opt/chatterbox-venv/lib/python3.12/site-packages/chatterbox/models/t3/t3.py && \
+    sed -i 's/from transformers import LlamaModel, LlamaConfig, GPT2Config, GPT2Model/from transformers.models.llama.modeling_llama import LlamaModel\nfrom transformers.models.llama.configuration_llama import LlamaConfig\nfrom transformers.models.gpt2.modeling_gpt2 import GPT2Model\nfrom transformers.models.gpt2.configuration_gpt2 import GPT2Config/' "$T3" && \
+    grep -n "from transformers" "$T3"
 # Voice generation runs via subprocess using this venv's python
 
 # RunPod SDK + extras

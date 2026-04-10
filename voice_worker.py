@@ -14,18 +14,7 @@ def main():
 
     os.environ["HF_HOME"] = "/models/chatterbox"
 
-    # Fix transformers 5.2.0 lazy import: bypass DummyObject by importing directly
     import torch
-    import transformers
-    from transformers.models.llama.modeling_llama import LlamaModel
-    from transformers.models.llama.configuration_llama import LlamaConfig
-    from transformers.models.gpt2.modeling_gpt2 import GPT2Model
-    from transformers.models.gpt2.configuration_gpt2 import GPT2Config
-    transformers.LlamaModel = LlamaModel
-    transformers.LlamaConfig = LlamaConfig
-    transformers.GPT2Model = GPT2Model
-    transformers.GPT2Config = GPT2Config
-
     import torchaudio
     from chatterbox.tts import ChatterboxTTS
 
