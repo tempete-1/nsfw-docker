@@ -74,12 +74,14 @@ RUN mkdir -p /models/segformer_b2_clothes && \
 RUN ls -la custom_nodes/PuLID_ComfyUI/*.py | head -5
 
 # Chatterbox TTS in isolated venv (needs transformers==5.2.0, conflicts with ComfyUI's 4.38.2)
-# Pin torch==2.6.0 from CUDA index FIRST so chatterbox-tts doesn't pull CPU-only torch from PyPI
+# chatterbox-tts overwrites CUDA torch with CPU-only from PyPI, so we reinstall CUDA torch AFTER
 RUN python3 -m venv /opt/chatterbox-venv && \
     /opt/chatterbox-venv/bin/pip install --no-cache-dir --upgrade pip && \
-    /opt/chatterbox-venv/bin/pip install --no-cache-dir torch==2.6.0 torchaudio==2.6.0 --index-url https://download.pytorch.org/whl/cu121 && \
     /opt/chatterbox-venv/bin/pip install --no-cache-dir chatterbox-tts && \
-    /opt/chatterbox-venv/bin/pip install --no-cache-dir sentencepiece protobuf accelerate
+    /opt/chatterbox-venv/bin/pip install --no-cache-dir torch==2.6.0 torchaudio==2.6.0 --index-url https://download.pytorch.org/whl/cu121 --force-reinstall --no-deps && \
+    /opt/chatterbox-venv/bin/pip install --no-cache-dir sentencepiece protobuf accelerate && \
+    /opt/chatterbox-venv/bin/python -c "import torch; assert torch.cuda.is_available(), 'CUDA torch broken!'; print('CUDA OK:', torch.version.cuda)" && \
+    /opt/chatterbox-venv/bin/python -c "from transformers import LlamaModel; print('LlamaModel import OK')"
 # Voice generation runs via subprocess using this venv's python
 
 # RunPod SDK + extras
