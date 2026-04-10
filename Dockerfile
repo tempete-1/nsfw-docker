@@ -74,12 +74,14 @@ RUN mkdir -p /models/segformer_b2_clothes && \
 RUN ls -la custom_nodes/PuLID_ComfyUI/*.py | head -5
 
 # Chatterbox TTS in isolated venv (needs transformers==5.2.0, conflicts with ComfyUI's 4.38.2)
-# 1) torch first (needed to build deps), 2) chatterbox, 3) CUDA torch back on top
+# 1) CUDA torch first, 2) chatterbox --no-deps (so it doesn't overwrite torch), 3) remaining deps
 RUN python3 -m venv /opt/chatterbox-venv && \
     /opt/chatterbox-venv/bin/pip install --no-cache-dir --upgrade pip && \
-    /opt/chatterbox-venv/bin/pip install --no-cache-dir torch==2.6.0 torchaudio==2.6.0 --index-url https://download.pytorch.org/whl/cu121 && \
-    /opt/chatterbox-venv/bin/pip install --no-cache-dir chatterbox-tts && \
-    /opt/chatterbox-venv/bin/pip install --no-cache-dir torch==2.6.0 torchaudio==2.6.0 --index-url https://download.pytorch.org/whl/cu121 --force-reinstall --no-deps && \
+    /opt/chatterbox-venv/bin/pip install --no-cache-dir torch torchaudio --index-url https://download.pytorch.org/whl/cu121 && \
+    /opt/chatterbox-venv/bin/pip install --no-cache-dir --no-deps chatterbox-tts && \
+    /opt/chatterbox-venv/bin/pip install --no-cache-dir transformers==5.2.0 diffusers==0.29.0 safetensors conformer omegaconf && \
+    /opt/chatterbox-venv/bin/pip install --no-cache-dir numpy librosa s3tokenizer pykakasi pyloudnorm "spacy-pkuseg>=0.0.27" && \
+    /opt/chatterbox-venv/bin/pip install --no-cache-dir "resemble-perth @ git+https://github.com/resemble-ai/Perth.git@master" && \
     /opt/chatterbox-venv/bin/pip install --no-cache-dir sentencepiece protobuf accelerate
 # Voice generation runs via subprocess using this venv's python
 
