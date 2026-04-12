@@ -22,7 +22,7 @@ def main():
 
     wav = model.generate(
         text=text,
-        audio_prompt=voice_sample_path,
+        audio_prompt_path=voice_sample_path,
         exaggeration=exaggeration,
     )
 

@@ -89,6 +89,7 @@ RUN T3=/opt/chatterbox-venv/lib/python3.12/site-packages/chatterbox/models/t3/t3
     sed -i 's/from transformers import LlamaModel, LlamaConfig, GPT2Config, GPT2Model/from transformers.models.llama.modeling_llama import LlamaModel\nfrom transformers.models.llama.configuration_llama import LlamaConfig\nfrom transformers.models.gpt2.modeling_gpt2 import GPT2Model\nfrom transformers.models.gpt2.configuration_gpt2 import GPT2Config/' "$T3" && \
     grep -n "from transformers" "$T3"
 # Voice generation runs via subprocess using this venv's python
+# Chatterbox model (~3GB) downloads to /models/chatterbox on first run (HF_HOME in voice_worker.py)
 
 # RunPod SDK + extras
 RUN pip3 install --no-cache-dir runpod

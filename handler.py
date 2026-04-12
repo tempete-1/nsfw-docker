@@ -664,7 +664,7 @@ def generate_voice(text: str, exaggeration: float = 0.7, voice_sample_b64: str =
         input=request,
         capture_output=True,
         text=True,
-        timeout=300,
+        timeout=600,
     )
 
     if result.returncode != 0:
