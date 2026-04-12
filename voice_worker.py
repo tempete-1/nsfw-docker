@@ -20,6 +20,11 @@ def main():
     sys.stdout = sys.stderr
 
     import torch
+    # Chatterbox checkpoints contain non-tensor data (dicts, configs).
+    # torch 2.6+ defaults to weights_only=True which breaks loading → garbled output.
+    _orig_load = torch.load
+    torch.load = lambda *a, **kw: _orig_load(*a, **{**kw, 'weights_only': False})
+
     import torchaudio
     from chatterbox.tts import ChatterboxTTS
 
