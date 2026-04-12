@@ -99,6 +99,10 @@ RUN pip3 install --no-cache-dir Pillow
 COPY extra_model_paths.yaml /comfyui/extra_model_paths.yaml
 COPY handler.py /handler.py
 COPY voice_worker.py /voice_worker.py
+# Convert voice sample to WAV at build time (ffmpeg already installed in image)
+COPY 0412.mp4 /tmp/voice_source.mp4
+RUN ffmpeg -i /tmp/voice_source.mp4 -vn -ar 22050 -ac 1 -t 30 /models/default_female_voice.wav && \
+    rm /tmp/voice_source.mp4
 COPY workflows/ /workflows/
 
 # Create dirs for ReActor models (will be symlinked from volume at runtime)
