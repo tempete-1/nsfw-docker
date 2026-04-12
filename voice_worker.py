@@ -14,6 +14,11 @@ def main():
 
     os.environ["HF_HOME"] = "/models/chatterbox"
 
+    # Redirect stdout to stderr during model loading to prevent library
+    # warnings (e.g. torch weights_only) from corrupting JSON output
+    real_stdout = sys.stdout
+    sys.stdout = sys.stderr
+
     import torch
     import torchaudio
     from chatterbox.tts import ChatterboxTTS
@@ -31,6 +36,8 @@ def main():
     buf.seek(0)
     audio_b64 = base64.b64encode(buf.read()).decode()
 
+    # Restore stdout for JSON result only
+    sys.stdout = real_stdout
     print(json.dumps({"status": "success", "audio": audio_b64}))
 
 
