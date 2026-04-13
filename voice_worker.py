@@ -9,7 +9,7 @@ def main():
     """Read JSON from stdin, generate voice, write base64 WAV to stdout."""
     request = json.loads(sys.stdin.read())
     text = request["text"]
-    exaggeration = request.get("exaggeration", 0.7)
+    exaggeration = request.get("exaggeration", 0.3)
     voice_sample_path = request.get("voice_sample_path")
 
     os.environ["HF_HOME"] = "/models/chatterbox"
@@ -45,7 +45,10 @@ def main():
         text=text,
         audio_prompt_path=voice_sample_path,
         exaggeration=exaggeration,
-        cfg_weight=0.5,
+        cfg_weight=0.7,
+        repetition_penalty=1.5,
+        temperature=0.6,
+        top_p=0.95,
     )
 
     buf = io.BytesIO()
