@@ -31,12 +31,19 @@ def main():
     model = ChatterboxTTS.from_pretrained(device="cuda")
 
     # Use default female voice sample if none provided
-    if not voice_sample_path or not os.path.exists(voice_sample_path or ""):
-        voice_sample_path = "/models/default_female_voice.wav"
+    DEFAULT_VOICE = "/models/default_female_voice.wav"
+    if not voice_sample_path or not os.path.exists(voice_sample_path):
+        voice_sample_path = DEFAULT_VOICE
+
+    if os.path.exists(voice_sample_path):
+        print(f"Using voice sample: {voice_sample_path} ({os.path.getsize(voice_sample_path)} bytes)", file=sys.stderr)
+    else:
+        print(f"WARNING: voice sample not found: {voice_sample_path}, generating without reference", file=sys.stderr)
+        voice_sample_path = None
 
     wav = model.generate(
         text=text,
-        audio_prompt_path=voice_sample_path if os.path.exists(voice_sample_path) else None,
+        audio_prompt_path=voice_sample_path,
         exaggeration=exaggeration,
         cfg_weight=0.5,
     )
