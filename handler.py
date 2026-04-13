@@ -640,7 +640,7 @@ def build_face_restore_workflow(generated_image_fname: str, original_face_fname:
 
 
 def generate_voice(text: str, exaggeration: float = 0.7, voice_sample_b64: str = None) -> str:
-    """Generate voice audio via Chatterbox TTS in isolated venv. Returns base64 WAV."""
+    """Generate voice audio via Chatterbox TTS in isolated venv. Returns base64 OGG Opus."""
     print(f"  Voice: generating audio for text ({len(text)} chars), exaggeration={exaggeration}, voice_clone={voice_sample_b64 is not None}")
 
     # Save voice sample if provided
@@ -672,8 +672,32 @@ def generate_voice(text: str, exaggeration: float = 0.7, voice_sample_b64: str =
         raise RuntimeError(f"Voice generation failed: {result.stderr[-500:]}")
 
     response = json.loads(result.stdout)
-    print(f"  Voice: generated {len(response['audio'])} bytes base64 audio")
-    return response["audio"]
+    wav_b64 = response["audio"]
+    print(f"  Voice: generated WAV, converting to OGG Opus for Telegram...")
+
+    # Convert WAV → OGG Opus (required for Telegram voice messages)
+    wav_bytes = base64.b64decode(wav_b64)
+    wav_path = f"/tmp/voice_{uuid.uuid4().hex[:8]}.wav"
+    ogg_path = wav_path.replace(".wav", ".ogg")
+    with open(wav_path, "wb") as f:
+        f.write(wav_bytes)
+
+    conv = subprocess.run(
+        ["ffmpeg", "-i", wav_path, "-c:a", "libopus", "-b:a", "64k", "-y", ogg_path],
+        capture_output=True, text=True, timeout=30,
+    )
+    os.remove(wav_path)
+
+    if conv.returncode != 0:
+        print(f"  ffmpeg error: {conv.stderr}")
+        raise RuntimeError(f"WAV→OGG conversion failed: {conv.stderr[-200:]}")
+
+    with open(ogg_path, "rb") as f:
+        ogg_b64 = base64.b64encode(f.read()).decode()
+    os.remove(ogg_path)
+
+    print(f"  Voice: OGG Opus ready ({len(ogg_b64)} bytes base64)")
+    return ogg_b64
 
 
 def handler(job):
