@@ -51,8 +51,26 @@ def main():
         top_p=0.95,
     )
 
+    # Trim trailing silence/artifacts
+    import numpy as np
+    wav_np = wav.squeeze().cpu().numpy()
+    # Find last sample above threshold (trim trailing noise)
+    threshold = 0.01
+    abs_wav = np.abs(wav_np)
+    # Find last loud sample, then add 0.3s padding
+    above = np.where(abs_wav > threshold)[0]
+    if len(above) > 0:
+        end_sample = min(above[-1] + int(model.sr * 0.3), len(wav_np))
+        wav_np = wav_np[:end_sample]
+    # Add subtle room noise to sound like real phone recording
+    room_noise = np.random.normal(0, 0.001, len(wav_np))
+    wav_np = wav_np + room_noise
+    wav_np = np.clip(wav_np, -1.0, 1.0).astype(np.float32)
+
+    wav_final = torch.tensor(wav_np).unsqueeze(0)
+
     buf = io.BytesIO()
-    torchaudio.save(buf, wav, model.sr, format="wav")
+    torchaudio.save(buf, wav_final, model.sr, format="wav")
     buf.seek(0)
     audio_b64 = base64.b64encode(buf.read()).decode()
 
