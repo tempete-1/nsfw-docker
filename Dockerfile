@@ -100,9 +100,10 @@ COPY extra_model_paths.yaml /comfyui/extra_model_paths.yaml
 COPY handler.py /handler.py
 COPY voice_worker.py /voice_worker.py
 # Convert voice sample to WAV at build time (ffmpeg already installed in image)
-COPY 0412.mp4 /tmp/voice_source.mp4
-RUN ffmpeg -i /tmp/voice_source.mp4 -vn -ar 22050 -ac 1 -t 30 /models/default_female_voice.wav && \
-    rm /tmp/voice_source.mp4
+# Skip first 10s (intro/silence), take 30s of clean voice, mono 22kHz
+COPY voice_reference.m4a /tmp/voice_source.m4a
+RUN ffmpeg -i /tmp/voice_source.m4a -vn -ss 10 -t 30 -ar 22050 -ac 1 /models/default_female_voice.wav && \
+    rm /tmp/voice_source.m4a
 COPY workflows/ /workflows/
 
 # Create dirs for ReActor models (will be symlinked from volume at runtime)
