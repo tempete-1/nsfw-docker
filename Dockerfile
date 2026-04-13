@@ -91,6 +91,12 @@ RUN T3=/opt/chatterbox-venv/lib/python3.12/site-packages/chatterbox/models/t3/t3
 # Voice generation runs via subprocess using this venv's python
 # Chatterbox model (~3GB) downloads to /models/chatterbox on first run (HF_HOME in voice_worker.py)
 
+# F5-TTS in isolated venv (test alternative to Chatterbox)
+RUN python3 -m venv /opt/f5tts-venv && \
+    /opt/f5tts-venv/bin/pip install --no-cache-dir --upgrade pip && \
+    /opt/f5tts-venv/bin/pip install --no-cache-dir torch torchaudio --index-url https://download.pytorch.org/whl/cu121 && \
+    /opt/f5tts-venv/bin/pip install --no-cache-dir f5-tts numpy
+
 # RunPod SDK + extras
 RUN pip3 install --no-cache-dir runpod
 RUN pip3 install --no-cache-dir Pillow
@@ -99,6 +105,7 @@ RUN pip3 install --no-cache-dir Pillow
 COPY extra_model_paths.yaml /comfyui/extra_model_paths.yaml
 COPY handler.py /handler.py
 COPY voice_worker.py /voice_worker.py
+COPY f5_voice_worker.py /f5_voice_worker.py
 # Convert voice sample to WAV at build time (ffmpeg already installed in image)
 # Skip first 10s (intro/silence), take 30s of clean voice, mono 22kHz
 COPY voice_reference.m4a /tmp/voice_source.m4a

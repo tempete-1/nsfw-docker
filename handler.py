@@ -700,6 +700,61 @@ def generate_voice(text: str, exaggeration: float = 0.7, voice_sample_b64: str =
     return ogg_b64
 
 
+def generate_voice_f5(text: str, voice_sample_b64: str = None) -> str:
+    """Generate voice via F5-TTS. Returns base64 OGG Opus."""
+    print(f"  F5-TTS: generating for text ({len(text)} chars)")
+
+    voice_sample_path = None
+    if voice_sample_b64:
+        voice_sample_path = os.path.join("/comfyui/input", f"voice_ref_{uuid.uuid4().hex[:8]}.wav")
+        audio_bytes = base64.b64decode(voice_sample_b64)
+        with open(voice_sample_path, "wb") as f:
+            f.write(audio_bytes)
+
+    request = json.dumps({
+        "text": text,
+        "voice_sample_path": voice_sample_path,
+    })
+
+    result = subprocess.run(
+        ["/opt/f5tts-venv/bin/python", "/f5_voice_worker.py"],
+        input=request,
+        capture_output=True,
+        text=True,
+        timeout=600,
+    )
+
+    if result.returncode != 0:
+        print(f"  F5-TTS stderr: {result.stderr}")
+        raise RuntimeError(f"F5-TTS failed: {result.stderr[-500:]}")
+
+    response = json.loads(result.stdout)
+    wav_b64 = response["audio"]
+
+    # Convert WAV → OGG Opus
+    wav_bytes = base64.b64decode(wav_b64)
+    wav_path = f"/tmp/f5voice_{uuid.uuid4().hex[:8]}.wav"
+    ogg_path = wav_path.replace(".wav", ".ogg")
+    with open(wav_path, "wb") as f:
+        f.write(wav_bytes)
+
+    conv = subprocess.run(
+        ["ffmpeg", "-i", wav_path, "-c:a", "libopus", "-b:a", "64k", "-y", ogg_path],
+        capture_output=True, text=True, timeout=30,
+    )
+    os.remove(wav_path)
+
+    if conv.returncode != 0:
+        raise RuntimeError(f"WAV→OGG failed: {conv.stderr[-200:]}")
+
+    with open(ogg_path, "rb") as f:
+        ogg_b64 = base64.b64encode(f.read()).decode()
+    os.remove(ogg_path)
+
+    print(f"  F5-TTS: OGG ready ({len(ogg_b64)} bytes)")
+    return ogg_b64
+
+
 def handler(job):
     """RunPod serverless handler."""
     try:
@@ -715,8 +770,15 @@ def handler(job):
         if action == "voice":
             text = job_input.get("prompt", "")
             exaggeration = float(job_input.get("exaggeration", 0.7))
-            voice_sample = job_input.get("voice_sample")  # base64 audio for cloning
+            voice_sample = job_input.get("voice_sample")
             audio_b64 = generate_voice(text, exaggeration, voice_sample)
+            return {"status": "success", "audio": audio_b64, "images": []}
+
+        # F5-TTS voice test — alternative voice engine
+        if action == "voice_test":
+            text = job_input.get("prompt", "")
+            voice_sample = job_input.get("voice_sample")
+            audio_b64 = generate_voice_f5(text, voice_sample)
             return {"status": "success", "audio": audio_b64, "images": []}
 
         # Face restore for edit modes (keep original face after edit)
