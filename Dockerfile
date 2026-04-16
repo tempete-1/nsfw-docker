@@ -1,17 +1,28 @@
-FROM nvidia/cuda:12.1.1-cudnn8-devel-ubuntu24.04
+FROM nvidia/cuda:12.1.1-cudnn8-devel-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
 
-# System deps (Ubuntu 24.04 ships Python 3.12 natively, no PPA needed)
+# System deps
 RUN apt-get update && apt-get install -y \
-    python3 python3-venv python3-dev git wget \
-    build-essential cmake ffmpeg \
+    git wget build-essential cmake ffmpeg \
     libgl1-mesa-glx libglib2.0-0 libsm6 libxrender1 libxext6 \
-    && ln -sf /usr/bin/python3 /usr/bin/python \
+    libffi-dev libssl-dev zlib1g-dev libbz2-dev libreadline-dev \
+    libsqlite3-dev liblzma-dev libncurses5-dev libncursesw5-dev \
     && rm -rf /var/lib/apt/lists/*
 
-RUN python3 -m ensurepip --upgrade && pip3 install --no-cache-dir --upgrade pip
+# Build Python 3.12 from source (deadsnakes PPA unreliable)
+RUN wget -q https://www.python.org/ftp/python/3.12.8/Python-3.12.8.tgz && \
+    tar xzf Python-3.12.8.tgz && cd Python-3.12.8 && \
+    ./configure --enable-optimizations --prefix=/usr/local 2>&1 | tail -5 && \
+    make -j$(nproc) 2>&1 | tail -5 && \
+    make install && \
+    cd / && rm -rf Python-3.12.8* && \
+    ln -sf /usr/local/bin/python3.12 /usr/bin/python3 && \
+    ln -sf /usr/local/bin/python3.12 /usr/bin/python && \
+    ln -sf /usr/local/bin/pip3.12 /usr/bin/pip3
+
+RUN pip3 install --no-cache-dir --upgrade pip
 
 # Install ComfyUI (latest — must include PR #12717 fix for Z-Image LoRA)
 RUN git clone https://github.com/comfyanonymous/ComfyUI.git /comfyui
