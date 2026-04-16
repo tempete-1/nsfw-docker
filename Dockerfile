@@ -1,17 +1,14 @@
-FROM nvidia/cuda:12.1.1-cudnn8-devel-ubuntu22.04
+FROM nvidia/cuda:12.1.1-cudnn8-devel-ubuntu24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
 
-# System deps + Python 3.12 (required by SeedVR2)
-RUN apt-get update && apt-get install -y software-properties-common && \
-    add-apt-repository -y ppa:deadsnakes/ppa && \
-    apt-get update && apt-get install -y \
-    python3.12 python3.12-venv python3.12-dev git wget \
+# System deps (Ubuntu 24.04 ships Python 3.12 natively, no PPA needed)
+RUN apt-get update && apt-get install -y \
+    python3 python3-venv python3-dev git wget \
     build-essential cmake ffmpeg \
     libgl1-mesa-glx libglib2.0-0 libsm6 libxrender1 libxext6 \
-    && ln -sf /usr/bin/python3.12 /usr/bin/python3 \
-    && ln -sf /usr/bin/python3.12 /usr/bin/python \
+    && ln -sf /usr/bin/python3 /usr/bin/python \
     && rm -rf /var/lib/apt/lists/*
 
 RUN python3 -m ensurepip --upgrade && pip3 install --no-cache-dir --upgrade pip
