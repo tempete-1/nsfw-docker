@@ -103,7 +103,9 @@ RUN python3 -m venv /opt/f5tts-venv && \
 RUN pip3 install --no-cache-dir runpod
 RUN pip3 install --no-cache-dir Pillow
 
-# Copy config and handler
+# Copy config and handler (CACHEBUST forces re-copy on every build to avoid stale cache)
+ARG CACHEBUST=1
+RUN echo "Cachebust: $CACHEBUST"
 COPY extra_model_paths.yaml /comfyui/extra_model_paths.yaml
 COPY handler.py /handler.py
 COPY voice_worker.py /voice_worker.py

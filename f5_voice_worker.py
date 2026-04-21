@@ -5,6 +5,8 @@ import json
 import base64
 import io
 
+print("[F5TTS-WORKER-VERSION-MARKER: 2026-04-21-v2-ndarray-fix]", file=sys.stderr, flush=True)
+
 def main():
     request = json.loads(sys.stdin.read())
     text = request["text"]
