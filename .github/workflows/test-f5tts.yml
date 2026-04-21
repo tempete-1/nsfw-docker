@@ -1,0 +1,52 @@
+name: Test F5-TTS venv setup
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Install Python 3.12 via deadsnakes
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y software-properties-common
+          sudo add-apt-repository -y ppa:deadsnakes/ppa
+          sudo apt-get update
+          sudo apt-get install -y python3.12 python3.12-venv python3.12-dev ffmpeg
+          python3.12 --version
+
+      - name: Create venv and install F5-TTS deps
+        run: |
+          python3.12 -m venv /tmp/f5tts-venv
+          /tmp/f5tts-venv/bin/pip install --upgrade pip
+          /tmp/f5tts-venv/bin/pip install torch==2.4.0 torchaudio==2.4.0 --index-url https://download.pytorch.org/whl/cu121
+          /tmp/f5tts-venv/bin/pip install nvidia-cuda-nvrtc-cu12
+          /tmp/f5tts-venv/bin/pip install f5-tts numpy soundfile
+          /tmp/f5tts-venv/bin/pip install --force-reinstall torchcodec==0.0.3
+
+      - name: Check installed versions
+        run: |
+          /tmp/f5tts-venv/bin/pip show torch torchaudio torchcodec | grep -E "Name|Version"
+
+      - name: Test F5-TTS import (CPU only)
+        run: |
+          /tmp/f5tts-venv/bin/python -c "
+          import sys
+          print('Python:', sys.version)
+          import torch
+          print('torch:', torch.__version__)
+          import torchaudio
+          print('torchaudio:', torchaudio.__version__)
+          try:
+              import torchcodec
+              print('torchcodec:', torchcodec.__version__)
+          except Exception as e:
+              print('torchcodec import error:', e)
+          try:
+              from f5_tts.api import F5TTS
+              print('F5TTS import: OK')
+          except Exception as e:
+              print('F5TTS import error:', e)
+              sys.exit(1)
+          "
