@@ -40,7 +40,10 @@ def main():
         gen_text=text,
     )
 
-    wav_np = wav.squeeze().cpu().numpy()
+    if isinstance(wav, np.ndarray):
+        wav_np = wav.squeeze()
+    else:
+        wav_np = wav.squeeze().cpu().numpy()
 
     # Trim trailing silence
     threshold = 0.01
