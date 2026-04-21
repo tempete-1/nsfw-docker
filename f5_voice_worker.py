@@ -36,16 +36,24 @@ def main():
         print(f"WARNING: voice sample not found: {voice_sample_path}", file=sys.stderr)
         voice_sample_path = None
 
+    print(f"[F5TTS-DEBUG] gen_text received: {repr(text)} (len={len(text)})", file=sys.stderr, flush=True)
+
     wav, sr, _ = model.infer(
         ref_file=voice_sample_path,
         ref_text="",
         gen_text=text,
     )
 
+    print(f"[F5TTS-DEBUG] infer returned type={type(wav).__name__} sr={sr}", file=sys.stderr, flush=True)
+    if hasattr(wav, 'shape'):
+        print(f"[F5TTS-DEBUG] wav.shape={wav.shape} duration={wav.shape[-1]/sr:.2f}s", file=sys.stderr, flush=True)
+
     if isinstance(wav, np.ndarray):
         wav_np = wav.squeeze()
     else:
         wav_np = wav.squeeze().cpu().numpy()
+
+    print(f"[F5TTS-DEBUG] after squeeze: len={len(wav_np)} duration={len(wav_np)/sr:.2f}s", file=sys.stderr, flush=True)
 
     # Trim trailing silence
     threshold = 0.01
@@ -54,6 +62,8 @@ def main():
     if len(above) > 0:
         end_sample = min(above[-1] + int(sr * 0.3), len(wav_np))
         wav_np = wav_np[:end_sample]
+
+    print(f"[F5TTS-DEBUG] after trim: len={len(wav_np)} duration={len(wav_np)/sr:.2f}s", file=sys.stderr, flush=True)
 
     # Add subtle room noise
     room_noise = np.random.normal(0, 0.001, len(wav_np))
