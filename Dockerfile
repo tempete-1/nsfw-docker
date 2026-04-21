@@ -94,9 +94,10 @@ RUN T3=/opt/chatterbox-venv/lib/python3.12/site-packages/chatterbox/models/t3/t3
 # F5-TTS in isolated venv (test alternative to Chatterbox)
 RUN python3 -m venv /opt/f5tts-venv && \
     /opt/f5tts-venv/bin/pip install --no-cache-dir --upgrade pip && \
-    /opt/f5tts-venv/bin/pip install --no-cache-dir torch torchaudio --index-url https://download.pytorch.org/whl/cu121 && \
+    /opt/f5tts-venv/bin/pip install --no-cache-dir torch==2.4.0 torchaudio==2.4.0 --index-url https://download.pytorch.org/whl/cu121 && \
     /opt/f5tts-venv/bin/pip install --no-cache-dir nvidia-cuda-nvrtc-cu12 && \
-    /opt/f5tts-venv/bin/pip install --no-cache-dir f5-tts numpy
+    /opt/f5tts-venv/bin/pip install --no-cache-dir f5-tts numpy && \
+    /opt/f5tts-venv/bin/pip uninstall -y torchcodec || true
 
 # RunPod SDK + extras
 RUN pip3 install --no-cache-dir runpod
