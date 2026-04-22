@@ -52,6 +52,13 @@ RUN python3 -m venv /opt/f5tts-venv && \
     /opt/f5tts-venv/bin/pip install --no-cache-dir f5-tts numpy && \
     /opt/f5tts-venv/bin/pip uninstall -y torchcodec || true
 
+# Verify F5's bundled clean reference audio exists — f5_voice_worker.py uses it
+# as a known-good reference with a hardcoded transcript instead of
+# auto-transcribing our noisy podcast clip via whisper.
+RUN ls -la /opt/f5tts-venv/lib/python*/site-packages/f5_tts/infer/examples/basic/ && \
+    test -f /opt/f5tts-venv/lib/python*/site-packages/f5_tts/infer/examples/basic/basic_ref_en.wav \
+        || (echo "FATAL: F5 bundled ref not found — check f5-tts package version" && exit 1)
+
 # RunPod SDK + extras
 RUN pip3 install --no-cache-dir runpod
 RUN pip3 install --no-cache-dir Pillow

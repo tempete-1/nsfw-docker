@@ -257,8 +257,11 @@ def generate_voice(text: str, exaggeration: float = 0.7, voice_sample_b64: str =
         timeout=600,
     )
 
+    # Always log stderr — helps diagnose silent-output issues
+    if result.stderr:
+        print(f"  Chatterbox stderr (last 2000 chars):\n{result.stderr[-2000:]}")
+
     if result.returncode != 0:
-        print(f"  Voice worker stderr: {result.stderr}")
         raise RuntimeError(f"Voice generation failed: {result.stderr[-500:]}")
 
     response = json.loads(result.stdout)
@@ -288,8 +291,12 @@ def generate_voice_f5(text: str, voice_sample_b64: str = None) -> str:
         timeout=600,
     )
 
+    # Always log stderr — worker prints [F5TTS] debug markers that help
+    # diagnose ref_text/whisper/silence issues even when the call "succeeds"
+    if result.stderr:
+        print(f"  F5-TTS stderr (last 2000 chars):\n{result.stderr[-2000:]}")
+
     if result.returncode != 0:
-        print(f"  F5-TTS stderr: {result.stderr}")
         raise RuntimeError(f"F5-TTS failed: {result.stderr[-500:]}")
 
     response = json.loads(result.stdout)
