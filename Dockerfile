@@ -23,57 +23,10 @@ RUN git pull origin master
 RUN pip3 install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 RUN pip3 install --no-cache-dir -r requirements.txt
 
-# Install custom nodes
-RUN cd custom_nodes && \
-    git clone https://github.com/cubiq/PuLID_ComfyUI.git && \
-    git clone https://github.com/Fannovel16/comfyui_controlnet_aux.git && \
-    git clone https://github.com/kijai/ComfyUI-WanVideoWrapper.git && \
-    git clone https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git && \
-    git clone https://github.com/kijai/ComfyUI-KJNodes.git && \
-    git clone https://github.com/mav-rik/facerestore_cf.git && \
-    git clone https://codeberg.org/Gourieff/comfyui-reactor-node.git && \
-    git clone https://github.com/nunchaku-ai/ComfyUI-nunchaku.git && \
-    git clone https://github.com/capitan01R/Comfyui-ZiT-Lora-loader.git && \
-    git clone https://github.com/cubiq/ComfyUI_InstantID.git && \
-    git clone https://github.com/Jonseed/ComfyUI-Detail-Daemon.git && \
-    git clone https://github.com/numz/ComfyUI-SeedVR2_VideoUpscaler.git && \
-    git clone https://github.com/rgthree/rgthree-comfy.git && \
-    git clone https://github.com/city96/ComfyUI-GGUF.git && \
-    git clone https://github.com/storyicon/comfyui_segment_anything.git && \
-    git clone https://github.com/StartHua/Comfyui_segformer_b2_clothes.git
-
-# Install node dependencies
-RUN pip3 install --no-cache-dir onnxruntime-gpu 2>/dev/null || pip3 install --no-cache-dir onnxruntime
-RUN pip3 install --no-cache-dir insightface facexlib
-RUN cd custom_nodes/PuLID_ComfyUI && pip3 install --no-cache-dir -r requirements.txt 2>/dev/null || true
-RUN cd custom_nodes/comfyui_controlnet_aux && pip3 install --no-cache-dir -r requirements.txt 2>/dev/null || true
-RUN cd custom_nodes/ComfyUI-WanVideoWrapper && pip3 install --no-cache-dir -r requirements.txt 2>/dev/null || true
-RUN cd custom_nodes/ComfyUI-VideoHelperSuite && pip3 install --no-cache-dir -r requirements.txt 2>/dev/null || true
-RUN cd custom_nodes/ComfyUI-KJNodes && pip3 install --no-cache-dir -r requirements.txt 2>/dev/null || true
-RUN cd custom_nodes/facerestore_cf && pip3 install --no-cache-dir -r requirements.txt 2>/dev/null || true
-RUN cd custom_nodes/comfyui-reactor-node && pip3 install --no-cache-dir -r requirements.txt 2>/dev/null || true
-RUN cd custom_nodes/ComfyUI_InstantID && pip3 install --no-cache-dir -r requirements.txt 2>/dev/null || true
-RUN cd custom_nodes/ComfyUI-nunchaku && pip3 install --no-cache-dir -r requirements.txt 2>/dev/null || true
-RUN pip3 install --no-cache-dir nunchaku 2>/dev/null || true
+# No custom nodes — only inpaint + voice modes use base ComfyUI only
 RUN pip3 install --no-cache-dir ffmpeg-python
-RUN cd custom_nodes/ComfyUI-Detail-Daemon && pip3 install --no-cache-dir -r requirements.txt 2>/dev/null || true
-RUN cd custom_nodes/ComfyUI-SeedVR2_VideoUpscaler && pip3 install --no-cache-dir -r requirements.txt
-RUN pip3 install --no-cache-dir gguf_connector 2>/dev/null || true
-RUN cd custom_nodes/ComfyUI-GGUF && pip3 install --no-cache-dir -r requirements.txt 2>/dev/null || true
-RUN cd custom_nodes/comfyui_segment_anything && pip3 install --no-cache-dir -r requirements.txt 2>/dev/null || true
-# Pin transformers for GroundingDINO compatibility
-RUN pip3 install --no-cache-dir transformers==4.38.2
 
-# Segformer B2 model for handler.py clothing segmentation (~549MB)
-RUN pip3 install --no-cache-dir scipy
-RUN mkdir -p /models/segformer_b2_clothes && \
-    python3 -c "from huggingface_hub import snapshot_download; snapshot_download('mattmdjaga/segformer_b2_clothes', local_dir='/models/segformer_b2_clothes')" || \
-    python3 -c "from huggingface_hub import snapshot_download; snapshot_download('mattmdjaga/segformer_b2_clothes', local_dir='/models/segformer_b2_clothes')"
-
-# Verify PuLID nodes exist
-RUN ls -la custom_nodes/PuLID_ComfyUI/*.py | head -5
-
-# Chatterbox TTS in isolated venv (needs transformers==5.2.0, conflicts with ComfyUI's 4.38.2)
+# Chatterbox TTS in isolated venv (needs transformers==5.2.0, conflicts with ComfyUI's)
 # 1) CUDA torch first, 2) chatterbox --no-deps (so it doesn't overwrite torch), 3) remaining deps
 # 4) Patch t3.py: replace broken lazy import with direct module imports
 RUN python3 -m venv /opt/chatterbox-venv && \
@@ -113,17 +66,12 @@ COPY f5_voice_worker.py /f5_voice_worker.py
 # Convert voice sample to WAV at build time (ffmpeg already installed in image)
 # Skip first 10s (intro/silence), take 30s of clean voice, mono 22kHz
 COPY voice_reference.m4a /tmp/voice_source.m4a
-RUN ffmpeg -i /tmp/voice_source.m4a -vn -ss 10 -t 30 -ar 22050 -ac 1 /models/default_female_voice.wav && \
+RUN mkdir -p /models && \
+    ffmpeg -i /tmp/voice_source.m4a -vn -ss 10 -t 30 -ar 22050 -ac 1 /models/default_female_voice.wav && \
     rm /tmp/voice_source.m4a
 COPY workflows/ /workflows/
 
-# Create dirs for ReActor models (will be symlinked from volume at runtime)
-RUN mkdir -p /comfyui/input \
-    /comfyui/models/insightface \
-    /comfyui/models/facerestore_models \
-    /comfyui/models/instantid \
-    /comfyui/models/controlnet \
-    /comfyui/models/sams \
-    /comfyui/models/grounding-dino
+# Create input dir (user-uploaded photos for inpaint)
+RUN mkdir -p /comfyui/input
 
 CMD ["python3", "-u", "/handler.py"]
