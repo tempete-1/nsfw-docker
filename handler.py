@@ -322,6 +322,22 @@ def wav_to_ogg_b64(wav_b64: str, prefix: str) -> str:
     return ogg_b64
 
 
+def free_comfy_vram():
+    """Tell ComfyUI to unload models from VRAM. Required before TTS to avoid OOM
+    (FLUX inpaint holds ~12GB; Chatterbox/F5 needs ~3GB; total exceeds 20GB on A4500)."""
+    try:
+        data = json.dumps({"unload_models": True, "free_memory": True}).encode()
+        req = urllib.request.Request(
+            f"http://{COMFY_HOST}/free",
+            data=data,
+            headers={"Content-Type": "application/json"},
+        )
+        urllib.request.urlopen(req, timeout=10)
+        print("  Freed ComfyUI VRAM before TTS")
+    except Exception as e:
+        print(f"  Warning: could not free ComfyUI VRAM: {e}")
+
+
 def handler(job):
     """RunPod serverless handler. Routes: voice / voice_test / inpaint."""
     try:
@@ -332,6 +348,7 @@ def handler(job):
 
         # ── Voice (Chatterbox) ──
         if action == "voice":
+            free_comfy_vram()
             text = job_input.get("prompt", "")
             exaggeration = float(job_input.get("exaggeration", 0.7))
             voice_sample = job_input.get("voice_sample")
@@ -340,6 +357,7 @@ def handler(job):
 
         # ── Voice Test (F5-TTS) ──
         if action == "voice_test":
+            free_comfy_vram()
             text = job_input.get("prompt", "")
             voice_sample = job_input.get("voice_sample")
             audio_b64 = generate_voice_f5(text, voice_sample)
