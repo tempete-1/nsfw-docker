@@ -1,0 +1,119 @@
+{
+  "10": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "input.png"
+    },
+    "_meta": {"title": "Load Photo"}
+  },
+  "15": {
+    "class_type": "AIO_Preprocessor",
+    "inputs": {
+      "image": ["10", 0],
+      "preprocessor": "DepthAnythingV2Preprocessor",
+      "resolution": 1024
+    },
+    "_meta": {"title": "Extract Depth Map"}
+  },
+  "1": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "flux1-dev.safetensors",
+      "weight_dtype": "fp8_e4m3fn"
+    },
+    "_meta": {"title": "Load UNET"}
+  },
+  "2": {
+    "class_type": "ControlNetLoader",
+    "inputs": {
+      "control_net_name": "flux-controlnet-union.safetensors"
+    },
+    "_meta": {"title": "Load ControlNet Union"}
+  },
+  "3": {
+    "class_type": "DualCLIPLoader",
+    "inputs": {
+      "clip_name1": "clip_l.safetensors",
+      "clip_name2": "t5xxl_fp16.safetensors",
+      "type": "flux"
+    },
+    "_meta": {"title": "CLIP Loader"}
+  },
+  "4": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "ae.safetensors"
+    },
+    "_meta": {"title": "VAE Loader"}
+  },
+  "6": {
+    "class_type": "EmptySD3LatentImage",
+    "inputs": {
+      "width": 768,
+      "height": 1024,
+      "batch_size": 1
+    },
+    "_meta": {"title": "Empty Latent"}
+  },
+  "7": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": ["3", 0],
+      "text": "nsfw edit prompt"
+    },
+    "_meta": {"title": "positive prompt"}
+  },
+  "8": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": ["3", 0],
+      "text": "blurry, ugly, deformed, watermark, text, low quality, cartoon, bad anatomy, extra limbs"
+    },
+    "_meta": {"title": "negative prompt"}
+  },
+  "16": {
+    "class_type": "ControlNetApplyAdvanced",
+    "inputs": {
+      "positive": ["7", 0],
+      "negative": ["8", 0],
+      "control_net": ["2", 0],
+      "image": ["15", 0],
+      "strength": 0.7,
+      "start_percent": 0.0,
+      "end_percent": 0.8
+    },
+    "_meta": {"title": "Apply ControlNet"}
+  },
+  "9": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": ["1", 0],
+      "positive": ["16", 0],
+      "negative": ["16", 1],
+      "latent_image": ["6", 0],
+      "seed": 42,
+      "steps": 20,
+      "cfg": 3.5,
+      "sampler_name": "euler",
+      "scheduler": "normal",
+      "denoise": 1.0
+    },
+    "_meta": {"title": "KSampler"}
+  },
+  "11": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": ["9", 0],
+      "vae": ["4", 0]
+    },
+    "_meta": {"title": "VAE Decode"}
+  },
+  "12": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": ["11", 0],
+      "filename_prefix": "nolimits_edit_cn"
+    },
+    "_meta": {"title": "Save Image"}
+  }
+}

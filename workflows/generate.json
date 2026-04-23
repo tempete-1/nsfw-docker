@@ -1,0 +1,92 @@
+{
+  "1": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "fux_capacity_v5.1_fp16.safetensors",
+      "weight_dtype": "fp8_e4m3fn"
+    },
+    "_meta": {"title": "Load UNET"}
+  },
+  "2": {
+    "class_type": "LoraLoaderModelOnly",
+    "inputs": {
+      "model": ["1", 0],
+      "lora_name": "flux_super_realism.safetensors",
+      "strength_model": 0.55
+    },
+    "_meta": {"title": "Super Realism LoRA"}
+  },
+  "4": {
+    "class_type": "DualCLIPLoader",
+    "inputs": {
+      "clip_name1": "clip_l.safetensors",
+      "clip_name2": "t5xxl_fp16.safetensors",
+      "type": "flux"
+    },
+    "_meta": {"title": "CLIP Loader"}
+  },
+  "5": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "ae.safetensors"
+    },
+    "_meta": {"title": "VAE Loader"}
+  },
+  "6": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": ["4", 0],
+      "text": "placeholder"
+    },
+    "_meta": {"title": "positive prompt"}
+  },
+  "7": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": ["4", 0],
+      "text": "blurry, ugly, deformed, text, watermark, low quality, cartoon, extra fingers, mutated hands, bad hands, malformed limbs, extra limbs, fused fingers, too many fingers, bad anatomy, disfigured, poorly drawn face, bad proportions, floating limbs, disconnected body parts"
+    },
+    "_meta": {"title": "negative prompt"}
+  },
+  "8": {
+    "class_type": "EmptyLatentImage",
+    "inputs": {
+      "width": 768,
+      "height": 1024,
+      "batch_size": 1
+    },
+    "_meta": {"title": "Empty Latent"}
+  },
+  "9": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": ["2", 0],
+      "positive": ["6", 0],
+      "negative": ["7", 0],
+      "latent_image": ["8", 0],
+      "seed": 42,
+      "steps": 20,
+      "cfg": 5.0,
+      "sampler_name": "dpmpp_2m_sde",
+      "scheduler": "beta",
+      "denoise": 1.0
+    },
+    "_meta": {"title": "KSampler"}
+  },
+  "10": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": ["9", 0],
+      "vae": ["5", 0]
+    },
+    "_meta": {"title": "VAE Decode"}
+  },
+  "11": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": ["10", 0],
+      "filename_prefix": "nolimits"
+    },
+    "_meta": {"title": "Save Image"}
+  }
+}
