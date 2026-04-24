@@ -639,28 +639,25 @@ def build_face_restore_workflow(generated_image_fname: str, original_face_fname:
     }
 
 
-def generate_voice(text: str, exaggeration: float = 0.7, voice_sample_b64: str = None) -> str:
-    """Generate voice audio via Chatterbox TTS in isolated venv. Returns base64 OGG Opus."""
-    print(f"  Voice: generating audio for text ({len(text)} chars), exaggeration={exaggeration}, voice_clone={voice_sample_b64 is not None}")
+def generate_voice(text: str, voice_sample_b64: str = None) -> str:
+    """Generate voice audio via Fish Speech S2 in isolated venv. Returns base64 OGG Opus."""
+    print(f"  Fish Speech: generating audio for text ({len(text)} chars), voice_clone={voice_sample_b64 is not None}")
 
-    # Save voice sample if provided
     voice_sample_path = None
     if voice_sample_b64:
         voice_sample_path = os.path.join("/comfyui/input", f"voice_ref_{uuid.uuid4().hex[:8]}.wav")
         audio_bytes = base64.b64decode(voice_sample_b64)
         with open(voice_sample_path, "wb") as f:
             f.write(audio_bytes)
-        print(f"  Voice: saved reference audio: {voice_sample_path}")
+        print(f"  Fish Speech: saved reference audio: {voice_sample_path}")
 
-    # Run in isolated venv (Chatterbox needs transformers==5.2.0, ComfyUI needs 4.38.2)
     request = json.dumps({
         "text": text,
-        "exaggeration": exaggeration,
         "voice_sample_path": voice_sample_path,
     })
 
     result = subprocess.run(
-        ["/opt/chatterbox-venv/bin/python", "/voice_worker.py"],
+        ["/opt/fish-speech-venv/bin/python", "/fish_voice_worker.py"],
         input=request,
         capture_output=True,
         text=True,
@@ -668,14 +665,13 @@ def generate_voice(text: str, exaggeration: float = 0.7, voice_sample_b64: str =
     )
 
     if result.returncode != 0:
-        print(f"  Voice worker stderr: {result.stderr}")
-        raise RuntimeError(f"Voice generation failed: {result.stderr[-500:]}")
+        print(f"  Fish Speech stderr: {result.stderr}")
+        raise RuntimeError(f"Fish Speech failed: {result.stderr[-500:]}")
 
     response = json.loads(result.stdout)
     wav_b64 = response["audio"]
-    print(f"  Voice: generated WAV, converting to OGG Opus for Telegram...")
+    print(f"  Fish Speech: generated WAV, converting to OGG Opus...")
 
-    # Convert WAV → OGG Opus (required for Telegram voice messages)
     wav_bytes = base64.b64decode(wav_b64)
     wav_path = f"/tmp/voice_{uuid.uuid4().hex[:8]}.wav"
     ogg_path = wav_path.replace(".wav", ".ogg")
@@ -696,62 +692,7 @@ def generate_voice(text: str, exaggeration: float = 0.7, voice_sample_b64: str =
         ogg_b64 = base64.b64encode(f.read()).decode()
     os.remove(ogg_path)
 
-    print(f"  Voice: OGG Opus ready ({len(ogg_b64)} bytes base64)")
-    return ogg_b64
-
-
-def generate_voice_f5(text: str, voice_sample_b64: str = None) -> str:
-    """Generate voice via F5-TTS. Returns base64 OGG Opus."""
-    print(f"  F5-TTS: generating for text ({len(text)} chars)")
-
-    voice_sample_path = None
-    if voice_sample_b64:
-        voice_sample_path = os.path.join("/comfyui/input", f"voice_ref_{uuid.uuid4().hex[:8]}.wav")
-        audio_bytes = base64.b64decode(voice_sample_b64)
-        with open(voice_sample_path, "wb") as f:
-            f.write(audio_bytes)
-
-    request = json.dumps({
-        "text": text,
-        "voice_sample_path": voice_sample_path,
-    })
-
-    result = subprocess.run(
-        ["/opt/f5tts-venv/bin/python", "/f5_voice_worker.py"],
-        input=request,
-        capture_output=True,
-        text=True,
-        timeout=600,
-    )
-
-    if result.returncode != 0:
-        print(f"  F5-TTS stderr: {result.stderr}")
-        raise RuntimeError(f"F5-TTS failed: {result.stderr[-500:]}")
-
-    response = json.loads(result.stdout)
-    wav_b64 = response["audio"]
-
-    # Convert WAV → OGG Opus
-    wav_bytes = base64.b64decode(wav_b64)
-    wav_path = f"/tmp/f5voice_{uuid.uuid4().hex[:8]}.wav"
-    ogg_path = wav_path.replace(".wav", ".ogg")
-    with open(wav_path, "wb") as f:
-        f.write(wav_bytes)
-
-    conv = subprocess.run(
-        ["ffmpeg", "-i", wav_path, "-c:a", "libopus", "-b:a", "64k", "-y", ogg_path],
-        capture_output=True, text=True, timeout=30,
-    )
-    os.remove(wav_path)
-
-    if conv.returncode != 0:
-        raise RuntimeError(f"WAV→OGG failed: {conv.stderr[-200:]}")
-
-    with open(ogg_path, "rb") as f:
-        ogg_b64 = base64.b64encode(f.read()).decode()
-    os.remove(ogg_path)
-
-    print(f"  F5-TTS: OGG ready ({len(ogg_b64)} bytes)")
+    print(f"  Fish Speech: OGG Opus ready ({len(ogg_b64)} bytes base64)")
     return ogg_b64
 
 
@@ -766,19 +707,11 @@ def handler(job):
         mode = job_input.get("mode", "generate")
         action = job_input.get("action", "generate")
 
-        # Voice generation — skip ComfyUI entirely
-        if action == "voice":
-            text = job_input.get("prompt", "")
-            exaggeration = float(job_input.get("exaggeration", 0.7))
-            voice_sample = job_input.get("voice_sample")
-            audio_b64 = generate_voice(text, exaggeration, voice_sample)
-            return {"status": "success", "audio": audio_b64, "images": []}
-
-        # F5-TTS voice test — alternative voice engine
-        if action == "voice_test":
+        # Voice generation (Fish Speech S2) — skip ComfyUI entirely
+        if action in ("voice", "voice_test"):
             text = job_input.get("prompt", "")
             voice_sample = job_input.get("voice_sample")
-            audio_b64 = generate_voice_f5(text, voice_sample)
+            audio_b64 = generate_voice(text, voice_sample)
             return {"status": "success", "audio": audio_b64, "images": []}
 
         # Face restore for edit modes (keep original face after edit)

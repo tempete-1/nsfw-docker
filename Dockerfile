@@ -73,31 +73,20 @@ RUN mkdir -p /models/segformer_b2_clothes && \
 # Verify PuLID nodes exist
 RUN ls -la custom_nodes/PuLID_ComfyUI/*.py | head -5
 
-# Chatterbox TTS in isolated venv (needs transformers==5.2.0, conflicts with ComfyUI's 4.38.2)
-# 1) CUDA torch first, 2) chatterbox --no-deps (so it doesn't overwrite torch), 3) remaining deps
-# 4) Patch t3.py: replace broken lazy import with direct module imports
-RUN python3 -m venv /opt/chatterbox-venv && \
-    /opt/chatterbox-venv/bin/pip install --no-cache-dir --upgrade pip && \
-    /opt/chatterbox-venv/bin/pip install --no-cache-dir torch torchaudio --index-url https://download.pytorch.org/whl/cu121 && \
-    /opt/chatterbox-venv/bin/pip install --no-cache-dir --no-deps chatterbox-tts && \
-    /opt/chatterbox-venv/bin/pip install --no-cache-dir transformers==5.2.0 diffusers==0.29.0 safetensors conformer omegaconf && \
-    /opt/chatterbox-venv/bin/pip install --no-cache-dir numpy librosa s3tokenizer pykakasi pyloudnorm "spacy-pkuseg>=0.0.27" && \
-    /opt/chatterbox-venv/bin/pip install --no-cache-dir "resemble-perth @ git+https://github.com/resemble-ai/Perth.git@master" && \
-    /opt/chatterbox-venv/bin/pip install --no-cache-dir sentencepiece protobuf accelerate
-# Patch chatterbox t3.py: transformers 5.2.0 lazy loader can't resolve top-level imports
-RUN T3=/opt/chatterbox-venv/lib/python3.12/site-packages/chatterbox/models/t3/t3.py && \
-    sed -i 's/from transformers import LlamaModel, LlamaConfig, GPT2Config, GPT2Model/from transformers.models.llama.modeling_llama import LlamaModel\nfrom transformers.models.llama.configuration_llama import LlamaConfig\nfrom transformers.models.gpt2.modeling_gpt2 import GPT2Model\nfrom transformers.models.gpt2.configuration_gpt2 import GPT2Config/' "$T3" && \
-    grep -n "from transformers" "$T3"
-# Voice generation runs via subprocess using this venv's python
-# Chatterbox model (~3GB) downloads to /models/chatterbox on first run (HF_HOME in voice_worker.py)
-
-# F5-TTS in isolated venv (test alternative to Chatterbox)
-RUN python3 -m venv /opt/f5tts-venv && \
-    /opt/f5tts-venv/bin/pip install --no-cache-dir --upgrade pip && \
-    /opt/f5tts-venv/bin/pip install --no-cache-dir torch==2.4.0 torchaudio==2.4.0 --index-url https://download.pytorch.org/whl/cu121 && \
-    /opt/f5tts-venv/bin/pip install --no-cache-dir nvidia-cuda-nvrtc-cu12 && \
-    /opt/f5tts-venv/bin/pip install --no-cache-dir f5-tts numpy && \
-    /opt/f5tts-venv/bin/pip uninstall -y torchcodec || true
+# Fish Speech S2 in isolated venv (separate from ComfyUI's transformers)
+RUN python3 -m venv /opt/fish-speech-venv && \
+    /opt/fish-speech-venv/bin/pip install --no-cache-dir --upgrade pip && \
+    /opt/fish-speech-venv/bin/pip install --no-cache-dir torch torchaudio --index-url https://download.pytorch.org/whl/cu121 && \
+    /opt/fish-speech-venv/bin/pip install --no-cache-dir numpy
+RUN cd /opt && git clone https://github.com/fishaudio/fish-speech.git && \
+    cd /opt/fish-speech && \
+    /opt/fish-speech-venv/bin/pip install --no-cache-dir -e ".[cu121]" || \
+    /opt/fish-speech-venv/bin/pip install --no-cache-dir -e .
+# Pre-download Fish Speech S2 model (~11GB) into Docker image
+RUN /opt/fish-speech-venv/bin/python -c "\
+from huggingface_hub import snapshot_download; \
+snapshot_download('fishaudio/fish-speech-1.5', local_dir='/models/fish-speech/s2')" || \
+    echo "WARNING: Fish Speech model download failed, will retry at runtime"
 
 # RunPod SDK + extras
 RUN pip3 install --no-cache-dir runpod
@@ -108,31 +97,12 @@ ARG CACHEBUST=1
 RUN echo "Cachebust: $CACHEBUST"
 COPY extra_model_paths.yaml /comfyui/extra_model_paths.yaml
 COPY handler.py /handler.py
-COPY voice_worker.py /voice_worker.py
-COPY f5_voice_worker.py /f5_voice_worker.py
+COPY fish_voice_worker.py /fish_voice_worker.py
 # Convert voice sample to WAV at build time (ffmpeg already installed in image)
 # Skip first 10s (intro/silence), take 30s of clean voice, mono 22kHz
 COPY voice_reference.m4a /tmp/voice_source.m4a
-# Extract 15 sec of clean voice (was 30 — shorter ref = cleaner clone)
-# Skip first 10s (intro/silence/music)
-RUN ffmpeg -i /tmp/voice_source.m4a -vn -ss 10 -t 15 -ar 22050 -ac 1 /models/default_female_voice.wav && \
+RUN ffmpeg -i /tmp/voice_source.m4a -vn -ss 10 -t 30 -ar 22050 -ac 1 /models/default_female_voice.wav && \
     rm /tmp/voice_source.m4a
-
-# Transcribe the female voice reference at BUILD time so F5-TTS has a
-# CORRECT ref_text at runtime (avoids whisper-roulette and 'кхм' output).
-# faster-whisper small int8 is ~240MB on CPU, takes ~30-60s for 15s audio.
-# After transcription we uninstall it to keep image slim.
-RUN pip3 install --no-cache-dir faster-whisper && \
-    python3 -c "\
-from faster_whisper import WhisperModel; \
-m = WhisperModel('small', device='cpu', compute_type='int8'); \
-segs, info = m.transcribe('/models/default_female_voice.wav', language='en', beam_size=5); \
-text = ' '.join(s.text.strip() for s in segs).strip(); \
-open('/models/default_female_voice.txt', 'w').write(text); \
-print(f'Transcript ({info.duration:.1f}s, lang={info.language}): {text[:300]}'); \
-" && \
-    pip3 uninstall -y faster-whisper && \
-    test -s /models/default_female_voice.txt || (echo "FATAL: empty transcript" && exit 1)
 COPY workflows/ /workflows/
 
 # Create dirs for ReActor models (will be symlinked from volume at runtime)
