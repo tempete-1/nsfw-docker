@@ -639,9 +639,26 @@ def build_face_restore_workflow(generated_image_fname: str, original_face_fname:
     }
 
 
+def free_comfy_vram():
+    """Free ComfyUI VRAM by sending free request + garbage collect."""
+    try:
+        urllib.request.urlopen(
+            urllib.request.Request(
+                f"http://{COMFY_HOST}/free",
+                data=json.dumps({"unload_models": True, "free_memory": True}).encode(),
+                headers={"Content-Type": "application/json"},
+            )
+        )
+        print("  Freed ComfyUI VRAM")
+    except Exception as e:
+        print(f"  Warning: could not free ComfyUI VRAM: {e}")
+
+
 def generate_voice(text: str, voice_sample_b64: str = None) -> str:
     """Generate voice audio via Fish Speech S2 in isolated venv. Returns base64 OGG Opus."""
     print(f"  Fish Speech: generating audio for text ({len(text)} chars), voice_clone={voice_sample_b64 is not None}")
+
+    free_comfy_vram()
 
     voice_sample_path = None
     if voice_sample_b64:
