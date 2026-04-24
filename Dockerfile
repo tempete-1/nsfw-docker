@@ -81,10 +81,10 @@ RUN python3 -m venv /opt/fish-speech-venv && \
 RUN cd /opt && git clone https://github.com/fishaudio/fish-speech.git
 RUN /opt/fish-speech-venv/bin/pip install --no-cache-dir torch==2.8.0 torchaudio==2.8.0 --index-url https://download.pytorch.org/whl/cu126
 RUN cd /opt/fish-speech && /opt/fish-speech-venv/bin/pip install --no-cache-dir -e .
-# Pre-download Fish Speech openaudio-s1-mini model (~1GB, fits 16GB GPU)
+# Pre-download Fish Speech S2-Pro model (~11GB)
 RUN /opt/fish-speech-venv/bin/python -c "\
 from huggingface_hub import snapshot_download; \
-snapshot_download('fishaudio/openaudio-s1-mini', local_dir='/opt/fish-speech/checkpoints/openaudio-s1-mini')"
+snapshot_download('fishaudio/s2-pro', local_dir='/opt/fish-speech/checkpoints/s2-pro')"
 
 # RunPod SDK + extras
 RUN pip3 install --no-cache-dir runpod

@@ -13,7 +13,7 @@ import urllib.request
 
 sys.path.insert(0, "/opt/fish-speech")
 
-CHECKPOINT_PATH = "/opt/fish-speech/checkpoints/openaudio-s1-mini"
+CHECKPOINT_PATH = "/opt/fish-speech/checkpoints/s2-pro"
 API_PORT = 8891
 API_URL = f"http://127.0.0.1:{API_PORT}"
 
@@ -64,7 +64,7 @@ def main():
         cwd="/opt/fish-speech",
         stdout=sys.stderr,
         stderr=sys.stderr,
-        env={**os.environ, "PYTHONPATH": "/opt/fish-speech"},
+        env={**os.environ, "PYTHONPATH": "/opt/fish-speech", "PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True"},
     )
 
     try:

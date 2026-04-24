@@ -652,6 +652,17 @@ def free_comfy_vram():
         print("  Freed ComfyUI VRAM")
     except Exception as e:
         print(f"  Warning: could not free ComfyUI VRAM: {e}")
+    import gc
+    gc.collect()
+    try:
+        import torch
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            torch.cuda.ipc_collect()
+            print(f"  CUDA cache cleared. Free: {torch.cuda.mem_get_info()[0] / 1024**3:.1f} GiB")
+    except Exception:
+        pass
+    time.sleep(3)
 
 
 def generate_voice(text: str, voice_sample_b64: str = None) -> str:
