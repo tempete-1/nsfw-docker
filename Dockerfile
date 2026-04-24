@@ -73,14 +73,14 @@ RUN mkdir -p /models/segformer_b2_clothes && \
 # Verify PuLID nodes exist
 RUN ls -la custom_nodes/PuLID_ComfyUI/*.py | head -5
 
+# Fish Speech S2 system deps (pyaudio needs portaudio)
+RUN apt-get update && apt-get install -y portaudio19-dev libasound-dev && rm -rf /var/lib/apt/lists/*
 # Fish Speech S2 in isolated venv (separate from ComfyUI's transformers)
 RUN python3 -m venv /opt/fish-speech-venv && \
-    /opt/fish-speech-venv/bin/pip install --no-cache-dir --upgrade pip && \
-    /opt/fish-speech-venv/bin/pip install --no-cache-dir torch==2.8.0 torchaudio --index-url https://download.pytorch.org/whl/cu126 && \
-    /opt/fish-speech-venv/bin/pip install --no-cache-dir numpy
-RUN cd /opt && git clone https://github.com/fishaudio/fish-speech.git && \
-    cd /opt/fish-speech && \
-    /opt/fish-speech-venv/bin/pip install --no-cache-dir -e .
+    /opt/fish-speech-venv/bin/pip install --no-cache-dir --upgrade pip setuptools wheel
+RUN cd /opt && git clone https://github.com/fishaudio/fish-speech.git
+RUN /opt/fish-speech-venv/bin/pip install --no-cache-dir torch==2.8.0 torchaudio==2.8.0 --index-url https://download.pytorch.org/whl/cu126
+RUN cd /opt/fish-speech && /opt/fish-speech-venv/bin/pip install --no-cache-dir -e .
 # Pre-download Fish Speech S2-Pro model (~11GB) into Docker image
 RUN /opt/fish-speech-venv/bin/python -c "\
 from huggingface_hub import snapshot_download; \
