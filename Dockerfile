@@ -76,17 +76,15 @@ RUN ls -la custom_nodes/PuLID_ComfyUI/*.py | head -5
 # Fish Speech S2 in isolated venv (separate from ComfyUI's transformers)
 RUN python3 -m venv /opt/fish-speech-venv && \
     /opt/fish-speech-venv/bin/pip install --no-cache-dir --upgrade pip && \
-    /opt/fish-speech-venv/bin/pip install --no-cache-dir torch torchaudio --index-url https://download.pytorch.org/whl/cu121 && \
+    /opt/fish-speech-venv/bin/pip install --no-cache-dir torch==2.8.0 torchaudio --index-url https://download.pytorch.org/whl/cu126 && \
     /opt/fish-speech-venv/bin/pip install --no-cache-dir numpy
 RUN cd /opt && git clone https://github.com/fishaudio/fish-speech.git && \
     cd /opt/fish-speech && \
-    /opt/fish-speech-venv/bin/pip install --no-cache-dir -e ".[cu121]" || \
     /opt/fish-speech-venv/bin/pip install --no-cache-dir -e .
-# Pre-download Fish Speech S2 model (~11GB) into Docker image
+# Pre-download Fish Speech S2-Pro model (~11GB) into Docker image
 RUN /opt/fish-speech-venv/bin/python -c "\
 from huggingface_hub import snapshot_download; \
-snapshot_download('fishaudio/fish-speech-1.5', local_dir='/models/fish-speech/s2')" || \
-    echo "WARNING: Fish Speech model download failed, will retry at runtime"
+snapshot_download('fishaudio/s2-pro', local_dir='/opt/fish-speech/checkpoints/s2-pro')"
 
 # RunPod SDK + extras
 RUN pip3 install --no-cache-dir runpod
