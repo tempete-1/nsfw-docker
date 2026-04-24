@@ -1,13 +1,11 @@
 """F5-TTS voice worker. Runs in isolated venv via subprocess.
 
-Root cause of 'кхм'/silent output (fix 2026-04-23):
-F5-TTS requires a CORRECT ref_text (transcript of reference audio).
-When ref_text="" it tries to auto-transcribe via whisper-large-v3-turbo.
-On our podcast reference (noisy intro) whisper produces garbage transcripts.
-Wrong ref_text → F5 outputs short vocal artefacts instead of speech.
-
-Fix: use F5's bundled clean reference (basic_ref_en.wav) with KNOWN transcript.
-For user-uploaded voice: keep ref_text="" (whisper usually OK on clean audio).
+Fix 2026-04-23 for 'кхм'/male-voice bugs:
+- Use user's podcast voice (FEMALE) as default reference
+- Reference is transcribed at BUILD time by whisper → saved to .txt file
+- Worker reads the pre-computed transcript instead of relying on F5's
+  runtime whisper-roulette (which produces garbage on noisy intros)
+- F5 bundled basic_ref_en.wav is MALE — kept only as last-resort fallback
 """
 import sys
 import os
@@ -15,38 +13,40 @@ import json
 import base64
 import io
 
-print("[F5TTS-WORKER-VERSION: 2026-04-23-reftext-fix]", file=sys.stderr, flush=True)
+print("[F5TTS-WORKER-VERSION: 2026-04-23-female-ref-with-transcript]", file=sys.stderr, flush=True)
 
 
-# F5-TTS ships a clean reference in its package with this known transcript.
-F5_BUNDLED_REFS = [
-    ("/opt/f5tts-venv/lib/python3.12/site-packages/f5_tts/infer/examples/basic/basic_ref_en.wav",
-     "Some call me nature, others call me mother nature."),
-]
+# Our own female voice (from user's podcast) — transcribed at build time
+PODCAST_REF_WAV = "/models/default_female_voice.wav"
+PODCAST_REF_TXT = "/models/default_female_voice.txt"
 
-# Podcast-based fallback (30s cut from 22-min podcast — transcript unknown,
-# use a generic English sentence that aligns reasonably)
-PODCAST_REF = "/models/default_female_voice.wav"
-PODCAST_REF_TEXT = "Hello everyone and welcome back to the show, today we have an amazing topic to discuss."
+# F5's bundled MALE English reference — only as last-resort fallback
+F5_BUNDLED_REF = "/opt/f5tts-venv/lib/python3.12/site-packages/f5_tts/infer/examples/basic/basic_ref_en.wav"
+F5_BUNDLED_TEXT = "Some call me nature, others call me mother nature."
 
 
 def find_reference(user_voice_path):
-    """Pick best reference audio + known transcript.
-    Priority: user voice > F5 bundled > podcast fallback."""
+    """Pick best reference audio + transcript. Priority:
+    1. User-uploaded voice (ref_text="" → F5's runtime whisper, usually OK on clean user audio)
+    2. User's podcast (female) with pre-transcribed ref_text
+    3. F5 bundled male fallback (last resort)
+    """
     if user_voice_path and os.path.exists(user_voice_path):
         print(f"[F5TTS] using USER voice: {user_voice_path}", file=sys.stderr)
-        return user_voice_path, ""  # whisper on clean user audio usually OK
+        return user_voice_path, ""
 
-    for path, transcript in F5_BUNDLED_REFS:
-        if os.path.exists(path):
-            print(f"[F5TTS] using F5 BUNDLED ref: {path}", file=sys.stderr)
-            print(f"[F5TTS] ref_text = {transcript!r}", file=sys.stderr)
-            return path, transcript
+    if os.path.exists(PODCAST_REF_WAV) and os.path.exists(PODCAST_REF_TXT):
+        with open(PODCAST_REF_TXT) as f:
+            transcript = f.read().strip()
+        if transcript:
+            print(f"[F5TTS] using PODCAST FEMALE ref: {PODCAST_REF_WAV}", file=sys.stderr)
+            print(f"[F5TTS] ref_text (from build-time whisper) = {transcript!r}", file=sys.stderr)
+            return PODCAST_REF_WAV, transcript
+        print(f"[F5TTS] podcast transcript file empty — falling through", file=sys.stderr)
 
-    if os.path.exists(PODCAST_REF):
-        print(f"[F5TTS] using PODCAST fallback: {PODCAST_REF}", file=sys.stderr)
-        print(f"[F5TTS] ref_text (hardcoded guess) = {PODCAST_REF_TEXT!r}", file=sys.stderr)
-        return PODCAST_REF, PODCAST_REF_TEXT
+    if os.path.exists(F5_BUNDLED_REF):
+        print(f"[F5TTS] FALLBACK to F5 bundled MALE ref: {F5_BUNDLED_REF}", file=sys.stderr)
+        return F5_BUNDLED_REF, F5_BUNDLED_TEXT
 
     print(f"[F5TTS] NO REFERENCE FOUND — generating without ref", file=sys.stderr)
     return None, ""
@@ -59,8 +59,6 @@ def main():
 
     os.environ["HF_HOME"] = "/models/f5tts"
 
-    # Redirect stdout to stderr during model loading (prevents torch/HF prints
-    # from corrupting our final JSON stdout line)
     real_stdout = sys.stdout
     sys.stdout = sys.stderr
 
@@ -79,11 +77,28 @@ def main():
     model = F5TTS(device="cuda")
     print(f"[F5TTS] model loaded, running infer...", file=sys.stderr, flush=True)
 
-    wav, sr, _ = model.infer(
+    # Quality params:
+    # - nfe_step=48 (default 32): higher = better quality, slower. 48 is a good trade-off.
+    # - remove_silence=True: drops silent gaps, reduces AI-like feel
+    # - cfg_strength=2.0 (default 2.0): classifier-free guidance strength
+    # - speed=1.0: normal pace
+    infer_kwargs = dict(
         ref_file=ref_path,
         ref_text=ref_text,
         gen_text=text,
     )
+    # Try to pass quality params — older F5 versions may not support them
+    for key, val in (("nfe_step", 48), ("remove_silence", True), ("speed", 1.0)):
+        try:
+            import inspect
+            sig = inspect.signature(model.infer)
+            if key in sig.parameters:
+                infer_kwargs[key] = val
+        except Exception:
+            pass
+
+    print(f"[F5TTS] infer kwargs: {list(infer_kwargs.keys())}", file=sys.stderr, flush=True)
+    wav, sr, _ = model.infer(**infer_kwargs)
 
     print(f"[F5TTS] infer returned type={type(wav).__name__} sr={sr}", file=sys.stderr, flush=True)
     if hasattr(wav, 'shape'):
@@ -98,7 +113,7 @@ def main():
           f"max_amp={np.abs(wav_np).max():.3f} mean_amp={np.abs(wav_np).mean():.4f}",
           file=sys.stderr, flush=True)
 
-    # Trim trailing silence (threshold 0.005 — not so aggressive that it cuts whispery speech)
+    # Trim trailing silence (gentle threshold — don't cut quiet speech)
     threshold = 0.005
     abs_wav = np.abs(wav_np)
     above = np.where(abs_wav > threshold)[0]
@@ -110,7 +125,7 @@ def main():
         print(f"[F5TTS] WARNING: entire wav below threshold {threshold} — silence!",
               file=sys.stderr, flush=True)
 
-    # Add subtle room noise for natural sound
+    # Very subtle room noise to mask digital artifacts
     room_noise = np.random.normal(0, 0.001, len(wav_np))
     wav_np = (wav_np + room_noise).clip(-1.0, 1.0).astype(np.float32)
 

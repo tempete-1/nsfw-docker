@@ -113,8 +113,26 @@ COPY f5_voice_worker.py /f5_voice_worker.py
 # Convert voice sample to WAV at build time (ffmpeg already installed in image)
 # Skip first 10s (intro/silence), take 30s of clean voice, mono 22kHz
 COPY voice_reference.m4a /tmp/voice_source.m4a
-RUN ffmpeg -i /tmp/voice_source.m4a -vn -ss 10 -t 30 -ar 22050 -ac 1 /models/default_female_voice.wav && \
+# Extract 15 sec of clean voice (was 30 — shorter ref = cleaner clone)
+# Skip first 10s (intro/silence/music)
+RUN ffmpeg -i /tmp/voice_source.m4a -vn -ss 10 -t 15 -ar 22050 -ac 1 /models/default_female_voice.wav && \
     rm /tmp/voice_source.m4a
+
+# Transcribe the female voice reference at BUILD time so F5-TTS has a
+# CORRECT ref_text at runtime (avoids whisper-roulette and 'кхм' output).
+# faster-whisper small int8 is ~240MB on CPU, takes ~30-60s for 15s audio.
+# After transcription we uninstall it to keep image slim.
+RUN pip3 install --no-cache-dir faster-whisper && \
+    python3 -c "\
+from faster_whisper import WhisperModel; \
+m = WhisperModel('small', device='cpu', compute_type='int8'); \
+segs, info = m.transcribe('/models/default_female_voice.wav', language='en', beam_size=5); \
+text = ' '.join(s.text.strip() for s in segs).strip(); \
+open('/models/default_female_voice.txt', 'w').write(text); \
+print(f'Transcript ({info.duration:.1f}s, lang={info.language}): {text[:300]}'); \
+" && \
+    pip3 uninstall -y faster-whisper && \
+    test -s /models/default_female_voice.txt || (echo "FATAL: empty transcript" && exit 1)
 COPY workflows/ /workflows/
 
 # Create dirs for ReActor models (will be symlinked from volume at runtime)
