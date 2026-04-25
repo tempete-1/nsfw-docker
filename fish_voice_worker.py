@@ -29,13 +29,33 @@ def wait_for_server(timeout=120):
     return False
 
 
+def add_emotions(text: str) -> str:
+    """Add Fish Speech inline emotion tags based on punctuation."""
+    import re
+    text = re.sub(r'\.\.\.', ' [breath]...', text)
+    text = re.sub(r'—', ' [pause]—', text)
+    text = re.sub(r'!\s', ' [excited] ', text)
+    text = re.sub(r'\?\s', ' [curious] ', text)
+    text = re.sub(r'!$', ' [excited]', text)
+    text = re.sub(r'\?$', ' [curious]', text)
+    text = re.sub(r'[Hh]aha|[Ll]ol|[Hh]ehe', '[laugh]', text)
+    text = re.sub(r'[Mm]mm+', '[sigh] mmm', text)
+    return text
+
+
 def main():
     request = json.loads(sys.stdin.read())
     text = request["text"]
     voice_sample_path = request.get("voice_sample_path")
+    temperature = request.get("temperature", 0.9)
+    top_p = request.get("top_p", 0.9)
+    repetition_penalty = request.get("repetition_penalty", 1.05)
 
     real_stdout = sys.stdout
     sys.stdout = sys.stderr
+
+    text = add_emotions(text)
+    print(f"[FISH] Text with emotions: {repr(text[:200])}", file=sys.stderr, flush=True)
 
     DEFAULT_VOICE = "/models/default_female_voice.wav"
     if not voice_sample_path or not os.path.exists(voice_sample_path):
@@ -47,7 +67,7 @@ def main():
         print(f"[FISH] WARNING: no voice sample found", file=sys.stderr, flush=True)
         voice_sample_path = None
 
-    print(f"[FISH] Generating: {repr(text[:100])}", file=sys.stderr, flush=True)
+    print(f"[FISH] Params: temp={temperature}, top_p={top_p}, rep={repetition_penalty}", file=sys.stderr, flush=True)
 
     # Start API server
     print(f"[FISH] Starting API server...", file=sys.stderr, flush=True)
@@ -88,11 +108,11 @@ def main():
             reference_id=None,
             format="wav",
             streaming=False,
-            max_new_tokens=1024,
+            max_new_tokens=2048,
             chunk_length=300,
-            top_p=0.8,
-            repetition_penalty=1.1,
-            temperature=0.8,
+            top_p=top_p,
+            repetition_penalty=repetition_penalty,
+            temperature=temperature,
         )
 
         payload = ormsgpack.packb(tts_request, option=ormsgpack.OPT_SERIALIZE_PYDANTIC)

@@ -71,6 +71,24 @@ huggingface-cli download Wan-AI/Wan2.1-I2V-14B-480P-Diffusers \
   image_encoder/model.safetensors \
   --local-dir $VOLUME/wan/Wan2.1-I2V-14B-480P/
 
+# ── SAM + GroundingDINO (for edit_nude mode) ──
+mkdir -p $VOLUME/sams
+mkdir -p $VOLUME/grounding-dino
+
+echo "Downloading SAM ViT-H..."
+wget -O $VOLUME/sams/sam_vit_h_4b8939.pth \
+  "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth"
+
+echo "Downloading GroundingDINO SwinT..."
+wget -O $VOLUME/grounding-dino/groundingdino_swint_ogc.pth \
+  "https://github.com/IDEA-Research/GroundingDINO/releases/download/v0.1.0-alpha/groundingdino_swint_ogc.pth"
+
+echo "Downloading GroundingDINO config..."
+wget -O $VOLUME/grounding-dino/GroundingDINO_SwinT_OGC.py \
+  "https://raw.githubusercontent.com/IDEA-Research/GroundingDINO/main/groundingdino/config/GroundingDINO_SwinT_OGC.py"
+wget -O $VOLUME/grounding-dino/GroundingDINO_SwinT_OGC.cfg.py \
+  "https://raw.githubusercontent.com/IDEA-Research/GroundingDINO/main/groundingdino/config/GroundingDINO_SwinT_OGC.py"
+
 echo ""
 echo "=== Manual steps remaining ==="
 echo "1. Upload kira_lora.safetensors to $VOLUME/loras/"

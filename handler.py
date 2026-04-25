@@ -665,9 +665,10 @@ def free_comfy_vram():
     time.sleep(3)
 
 
-def generate_voice(text: str, voice_sample_b64: str = None) -> str:
+def generate_voice(text: str, voice_sample_b64: str = None, temperature: float = 0.9, top_p: float = 0.9, repetition_penalty: float = 1.05) -> str:
     """Generate voice audio via Fish Speech S2 in isolated venv. Returns base64 OGG Opus."""
     print(f"  Fish Speech: generating audio for text ({len(text)} chars), voice_clone={voice_sample_b64 is not None}")
+    print(f"  Fish Speech params: temp={temperature}, top_p={top_p}, rep_penalty={repetition_penalty}")
 
     free_comfy_vram()
 
@@ -682,6 +683,9 @@ def generate_voice(text: str, voice_sample_b64: str = None) -> str:
     request = json.dumps({
         "text": text,
         "voice_sample_path": voice_sample_path,
+        "temperature": temperature,
+        "top_p": top_p,
+        "repetition_penalty": repetition_penalty,
     })
 
     result = subprocess.run(
@@ -739,7 +743,12 @@ def handler(job):
         if action in ("voice", "voice_test"):
             text = job_input.get("prompt", "")
             voice_sample = job_input.get("voice_sample")
-            audio_b64 = generate_voice(text, voice_sample)
+            audio_b64 = generate_voice(
+                text, voice_sample,
+                temperature=job_input.get("temperature", 0.9),
+                top_p=job_input.get("top_p", 0.9),
+                repetition_penalty=job_input.get("repetition_penalty", 1.05),
+            )
             return {"status": "success", "audio": audio_b64, "images": []}
 
         # Face restore for edit modes (keep original face after edit)
