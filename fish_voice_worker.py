@@ -29,20 +29,6 @@ def wait_for_server(timeout=120):
     return False
 
 
-def add_emotions(text: str) -> str:
-    """Add Fish Speech inline emotion tags based on punctuation."""
-    import re
-    text = re.sub(r'\.\.\.', ' [breath]...', text)
-    text = re.sub(r'—', ' [pause]—', text)
-    text = re.sub(r'!\s', ' [excited] ', text)
-    text = re.sub(r'\?\s', ' [curious] ', text)
-    text = re.sub(r'!$', ' [excited]', text)
-    text = re.sub(r'\?$', ' [curious]', text)
-    text = re.sub(r'[Hh]aha|[Ll]ol|[Hh]ehe', '[laugh]', text)
-    text = re.sub(r'[Mm]mm+', '[sigh] mmm', text)
-    return text
-
-
 def main():
     request = json.loads(sys.stdin.read())
     text = request["text"]
@@ -54,8 +40,7 @@ def main():
     real_stdout = sys.stdout
     sys.stdout = sys.stderr
 
-    text = add_emotions(text)
-    print(f"[FISH] Text with emotions: {repr(text[:200])}", file=sys.stderr, flush=True)
+    print(f"[FISH] Text: {repr(text[:200])}", file=sys.stderr, flush=True)
 
     DEFAULT_VOICE = "/models/default_female_voice.wav"
     if not voice_sample_path or not os.path.exists(voice_sample_path):
