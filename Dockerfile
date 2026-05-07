@@ -85,6 +85,12 @@ RUN cd /opt/fish-speech && /opt/fish-speech-venv/bin/pip install --no-cache-dir 
 RUN /opt/fish-speech-venv/bin/python -c "\
 from huggingface_hub import snapshot_download; \
 snapshot_download('fishaudio/s2-pro', local_dir='/opt/fish-speech/checkpoints/s2-pro')"
+# Pre-download openaudio-s1-mini for fine-tuning (~3GB)
+RUN /opt/fish-speech-venv/bin/python -c "\
+from huggingface_hub import snapshot_download; \
+snapshot_download('fishaudio/openaudio-s1-mini', local_dir='/opt/fish-speech/checkpoints/openaudio-s1-mini')"
+# Dependencies for fine-tuning (whisper for transcription)
+RUN /opt/fish-speech-venv/bin/pip install --no-cache-dir faster-whisper
 
 # RunPod SDK + extras
 RUN pip3 install --no-cache-dir runpod
@@ -96,11 +102,14 @@ RUN echo "Cachebust: $CACHEBUST"
 COPY extra_model_paths.yaml /comfyui/extra_model_paths.yaml
 COPY handler.py /handler.py
 COPY fish_voice_worker.py /fish_voice_worker.py
-# Convert voice sample to WAV at build time (ffmpeg already installed in image)
-# Skip first 10s (intro/silence), take 30s of clean voice, mono 22kHz
+COPY finetune_voice.sh /finetune_voice.sh
+RUN chmod +x /finetune_voice.sh
+# Voice reference audio
 COPY voice_reference.m4a /tmp/voice_source.m4a
 RUN ffmpeg -i /tmp/voice_source.m4a -vn -ss 10 -t 30 -ar 22050 -ac 1 /models/default_female_voice.wav && \
     rm /tmp/voice_source.m4a
+COPY voice_ref.wav /models/voice_ref.wav
+COPY voice_full.ogg /models/voice_full.ogg
 COPY workflows/ /workflows/
 
 # Create dirs for ReActor models (will be symlinked from volume at runtime)

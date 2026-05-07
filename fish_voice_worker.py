@@ -13,7 +13,9 @@ import urllib.request
 
 sys.path.insert(0, "/opt/fish-speech")
 
-CHECKPOINT_PATH = "/opt/fish-speech/checkpoints/s2-pro"
+CUSTOM_CHECKPOINT = "/opt/fish-speech/checkpoints/custom-voice"
+S2PRO_CHECKPOINT = "/opt/fish-speech/checkpoints/s2-pro"
+CHECKPOINT_PATH = CUSTOM_CHECKPOINT if os.path.exists(os.path.join(CUSTOM_CHECKPOINT, "codec.pth")) else S2PRO_CHECKPOINT
 API_PORT = 8891
 API_URL = f"http://127.0.0.1:{API_PORT}"
 
