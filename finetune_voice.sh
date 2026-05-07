@@ -111,8 +111,8 @@ $VENV/bin/python fish_speech/train.py \
     --config-name text2semantic_finetune \
     pretrained_ckpt_path="$CHECKPOINT" \
     project="$OUTPUT_DIR" \
-    "train_dataset.proto_files=[$DATA_DIR/protos]" \
-    "val_dataset.proto_files=[$DATA_DIR/protos]" \
+    "train_dataset.proto_files=[${DATA_DIR}/protos]" \
+    "val_dataset.proto_files=[${DATA_DIR}/protos]" \
     +lora@model.model.lora_config=r_8_alpha_16
 
 echo "=== Step 6: Merge LoRA weights ==="
