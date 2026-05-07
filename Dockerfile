@@ -85,11 +85,7 @@ RUN cd /opt/fish-speech && /opt/fish-speech-venv/bin/pip install --no-cache-dir 
 RUN /opt/fish-speech-venv/bin/python -c "\
 from huggingface_hub import snapshot_download; \
 snapshot_download('fishaudio/s2-pro', local_dir='/opt/fish-speech/checkpoints/s2-pro')"
-# Pre-download openaudio-s1-mini for fine-tuning (~3GB)
-RUN /opt/fish-speech-venv/bin/python -c "\
-from huggingface_hub import snapshot_download; \
-snapshot_download('fishaudio/openaudio-s1-mini', local_dir='/opt/fish-speech/checkpoints/openaudio-s1-mini')"
-# Dependencies for fine-tuning (whisper for transcription)
+# Fine-tuning deps (model downloaded at runtime by finetune_voice.sh)
 RUN /opt/fish-speech-venv/bin/pip install --no-cache-dir faster-whisper
 
 # RunPod SDK + extras
