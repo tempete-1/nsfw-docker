@@ -1,23 +1,19 @@
 #!/bin/bash
-# Fine-tune Fish Speech openaudio-s1-mini on custom voice data
+# Fine-tune Fish Speech S2-Pro on custom voice data
 # Run on GPU Pod with 24GB+ VRAM (RTX 4090, A40, etc.)
 set -e
 
 VENV="/opt/fish-speech-venv"
 FISH="/opt/fish-speech"
-CHECKPOINT="$FISH/checkpoints/openaudio-s1-mini"
+CHECKPOINT="$FISH/checkpoints/s2-pro"
 DATA_DIR="/workspace/voice_finetune/data"
 OUTPUT_DIR="/workspace/voice_finetune/results"
 MERGED_DIR="$FISH/checkpoints/custom-voice"
 
 echo "=== Step 0: Check prerequisites ==="
 if [ ! -f "$CHECKPOINT/codec.pth" ]; then
-    echo "ERROR: openaudio-s1-mini checkpoint not found at $CHECKPOINT"
-    echo "Downloading..."
-    $VENV/bin/python -c "
-from huggingface_hub import snapshot_download
-snapshot_download('fishaudio/openaudio-s1-mini', local_dir='$CHECKPOINT')
-"
+    echo "ERROR: S2-Pro checkpoint not found at $CHECKPOINT"
+    exit 1
 fi
 
 if [ ! -f "/models/voice_full.ogg" ]; then
@@ -28,24 +24,17 @@ fi
 echo "=== Step 1: Prepare audio segments ==="
 mkdir -p "$DATA_DIR/speaker1"
 
-# Convert OGG to WAV
 echo "Converting OGG to WAV..."
 ffmpeg -i /models/voice_full.ogg -ar 44100 -ac 1 /tmp/voice_full.wav -y
 
-# Install whisper for transcription
-$VENV/bin/pip install faster-whisper 2>/dev/null || true
-
-# Segment audio + transcribe using Python
 echo "Segmenting and transcribing..."
 $VENV/bin/python - <<'PYEOF'
 import os
 import subprocess
-import json
 
 DATA_DIR = "/workspace/voice_finetune/data/speaker1"
 WAV_PATH = "/tmp/voice_full.wav"
 
-# Use faster-whisper for segmentation + transcription
 from faster_whisper import WhisperModel
 print("Loading Whisper model (medium)...")
 model = WhisperModel("medium", device="cuda", compute_type="float16")
@@ -70,7 +59,6 @@ for seg in segments:
     wav_out = os.path.join(DATA_DIR, f"{fname}.wav")
     lab_out = os.path.join(DATA_DIR, f"{fname}.lab")
 
-    # Extract segment with ffmpeg
     subprocess.run([
         "ffmpeg", "-i", WAV_PATH,
         "-ss", str(start), "-t", str(duration),
@@ -78,7 +66,6 @@ for seg in segments:
         "-y", wav_out
     ], capture_output=True)
 
-    # Write transcription
     with open(lab_out, "w") as f:
         f.write(text)
 
@@ -116,7 +103,6 @@ $VENV/bin/python fish_speech/train.py \
     +lora@model.model.lora_config=r_8_alpha_16
 
 echo "=== Step 6: Merge LoRA weights ==="
-# Find the latest checkpoint
 LATEST_CKPT=$(ls -t "$OUTPUT_DIR/checkpoints/"*.ckpt 2>/dev/null | head -1)
 if [ -z "$LATEST_CKPT" ]; then
     echo "ERROR: No checkpoint found in $OUTPUT_DIR/checkpoints/"
@@ -130,7 +116,6 @@ $VENV/bin/python tools/llama/merge_lora.py \
     --lora-weight "$LATEST_CKPT" \
     --output "$MERGED_DIR"
 
-# Copy codec to merged dir
 cp "$CHECKPOINT/codec.pth" "$MERGED_DIR/codec.pth"
 
 echo ""
